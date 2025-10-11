@@ -7,8 +7,9 @@ import { ContactDialog } from "@/components/ContactDialog";
 import { ImportDialog } from "@/components/ImportDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { Plus, Users, CalendarClock, Search, X, Download, FileJson, FileText, Upload, ArrowUpDown, ArrowUp, ArrowDown, Trash2, Tag, CheckSquare, Square } from "lucide-react";
+import { Plus, Users, CalendarClock, Search, X, Download, FileJson, FileText, Upload, ArrowUpDown, ArrowUp, ArrowDown, Trash2, Tag, CheckSquare, Square, TrendingUp, Clock, AlertCircle, Activity } from "lucide-react";
 import { isToday, isPast } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -207,9 +208,25 @@ export default function Home() {
     return sortOrder === "asc" ? comparison : -comparison;
   });
 
-  const dueCount = contacts.filter(c => 
-    c.nextTouchDate && (isToday(new Date(c.nextTouchDate)) || isPast(new Date(c.nextTouchDate)))
+  // Analytics calculations
+  const totalContacts = contacts.length;
+  
+  const dueTodayCount = contacts.filter(c => 
+    c.nextTouchDate && isToday(new Date(c.nextTouchDate))
   ).length;
+  
+  const overdueCount = contacts.filter(c => 
+    c.nextTouchDate && isPast(new Date(c.nextTouchDate)) && !isToday(new Date(c.nextTouchDate))
+  ).length;
+  
+  const recentlyContactedCount = contacts.filter(c => {
+    if (!c.lastContactDate) return false;
+    const millisecondsSince = Date.now() - new Date(c.lastContactDate).getTime();
+    const daysSince = millisecondsSince / (1000 * 60 * 60 * 24);
+    return daysSince < 7;
+  }).length;
+
+  const dueCount = dueTodayCount + overdueCount;
 
   const toggleTag = (tag: string) => {
     setSelectedTags(prev =>
@@ -595,7 +612,68 @@ export default function Home() {
           </aside>
 
           {/* Main Content */}
-          <main className="flex-1">
+          <main className="flex-1 space-y-6">
+            {/* Analytics Dashboard */}
+            {!isLoading && contacts.length > 0 && (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4" data-testid="analytics-dashboard">
+                {/* Total Contacts */}
+                <Card className="hover-elevate">
+                  <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Total Contacts</CardTitle>
+                    <Users className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold" data-testid="stat-total-contacts">{totalContacts}</div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Contacts in your network
+                    </p>
+                  </CardContent>
+                </Card>
+
+                {/* Recently Contacted */}
+                <Card className="hover-elevate">
+                  <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Recent Activity</CardTitle>
+                    <Activity className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-chart-2" data-testid="stat-recent-contacts">{recentlyContactedCount}</div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Contacted in last 7 days
+                    </p>
+                  </CardContent>
+                </Card>
+
+                {/* Due Today */}
+                <Card className="hover-elevate">
+                  <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Due Today</CardTitle>
+                    <Clock className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-chart-3" data-testid="stat-due-today">{dueTodayCount}</div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Follow-ups scheduled today
+                    </p>
+                  </CardContent>
+                </Card>
+
+                {/* Overdue */}
+                <Card className="hover-elevate">
+                  <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Overdue</CardTitle>
+                    <AlertCircle className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-chart-5" data-testid="stat-overdue">{overdueCount}</div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Follow-ups past due date
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
             {isLoading ? (
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 {[...Array(6)].map((_, i) => (
