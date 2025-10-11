@@ -12,6 +12,20 @@ Personal CRM helps users track people they know with:
 - Clean, professional card-based interface with subtle color accents
 
 ## Recent Changes
+- October 11, 2025: Activity Timeline & Data Export
+  - Added activity history tracking (created, updated, contacted events)
+  - Built ActivityTimeline component with visual timeline display
+  - Implemented CSV and JSON export functionality with proper file downloads
+  - Added export dropdown menu to header with format selection
+  - Activity logging automatically tracks all contact interactions
+  - Timeline auto-refreshes after new activities via proper cache invalidation
+
+- October 11, 2025: Contact Search Implementation
+  - Added search input with real-time filtering
+  - Backend search across all fields (name, company, email, phone, notes, tags)
+  - Proper cache invalidation for search results
+  - Search state management with clear functionality
+
 - October 11, 2025: PostgreSQL Migration
   - Migrated from in-memory storage to PostgreSQL database
   - Created DbStorage class using Drizzle ORM
@@ -44,7 +58,8 @@ Personal CRM helps users track people they know with:
 │   │   │   ├── ThemeProvider.tsx - Dark mode context
 │   │   │   ├── ThemeToggle.tsx - Theme switcher
 │   │   │   ├── ContactCard.tsx - Contact display card
-│   │   │   └── ContactDialog.tsx - Add/edit contact form
+│   │   │   ├── ContactDialog.tsx - Add/edit contact form
+│   │   │   └── ActivityTimeline.tsx - Activity history timeline
 │   │   ├── pages/
 │   │   │   ├── Home.tsx - Main dashboard
 │   │   │   └── not-found.tsx - 404 page
@@ -64,11 +79,15 @@ Personal CRM helps users track people they know with:
 
 ### API Endpoints
 - `GET /api/contacts` - Get all contacts
+- `GET /api/contacts/search?q={query}` - Search contacts across all fields
 - `POST /api/contacts` - Create a new contact
 - `GET /api/contacts/:id` - Get a specific contact
 - `PATCH /api/contacts/:id` - Update a contact
 - `DELETE /api/contacts/:id` - Delete a contact
 - `POST /api/contacts/:id/contacted` - Mark contact as contacted today
+- `GET /api/contacts/:id/activities` - Get activity timeline for a contact
+- `GET /api/contacts/export/csv` - Export all contacts as CSV file
+- `GET /api/contacts/export/json` - Export all contacts as JSON file
 
 ### Data Model
 ```typescript
@@ -82,6 +101,15 @@ Contact {
   lastContactDate?: Date
   nextTouchDate?: Date
   tags: string[]
+}
+
+Activity {
+  id: string
+  contactId: string (foreign key)
+  type: "created" | "update" | "contact" | string
+  description: string
+  notes?: string
+  createdAt: Date
 }
 ```
 
@@ -103,8 +131,22 @@ Contact {
    - "Contacted Today" button to update last contact date
    - Edit and delete contact options
    - Add new contact with comprehensive form
+   - View activity timeline with interaction history
 
-5. **Dark Mode**: Full dark/light theme support with system preference detection
+5. **Search & Filter**: Real-time search across all contact fields with tag filtering
+
+6. **Activity Timeline**: 
+   - Automatic logging of all contact interactions
+   - Visual timeline with icons for different activity types
+   - Timestamp display with relative time formatting
+   - Accessible via timeline button on contact cards
+
+7. **Data Export**:
+   - Export all contacts as CSV with proper formatting
+   - Export all contacts as JSON with pretty printing
+   - Automatic file download with timestamped filenames
+
+8. **Dark Mode**: Full dark/light theme support with system preference detection
 
 ## Development
 
