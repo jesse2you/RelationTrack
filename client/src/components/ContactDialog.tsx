@@ -154,6 +154,7 @@ export function ContactDialog({
                       <Input
                         placeholder="Acme Inc."
                         {...field}
+                        value={field.value || ""}
                         data-testid="input-company"
                       />
                     </FormControl>
@@ -175,6 +176,7 @@ export function ContactDialog({
                         type="email"
                         placeholder="john@example.com"
                         {...field}
+                        value={field.value || ""}
                         data-testid="input-email"
                       />
                     </FormControl>
@@ -193,6 +195,7 @@ export function ContactDialog({
                       <Input
                         placeholder="+1 (555) 123-4567"
                         {...field}
+                        value={field.value || ""}
                         data-testid="input-phone"
                       />
                     </FormControl>
@@ -213,6 +216,7 @@ export function ContactDialog({
                       placeholder="Add any additional notes about this contact..."
                       className="resize-none min-h-[100px]"
                       {...field}
+                      value={field.value || ""}
                       data-testid="input-notes"
                     />
                   </FormControl>
