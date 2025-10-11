@@ -5,6 +5,7 @@ import { queryClient } from "@/lib/queryClient";
 import { ContactCard } from "@/components/ContactCard";
 import { ContactDialog } from "@/components/ContactDialog";
 import { ImportDialog } from "@/components/ImportDialog";
+import { QuickAddDialog } from "@/components/QuickAddDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,6 +26,7 @@ type SortOrder = "asc" | "desc";
 
 export default function Home() {
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
   const [viewMode, setViewMode] = useState<"all" | "due">("all");
@@ -55,6 +57,7 @@ export default function Home() {
                               (Array.isArray(query.queryKey) && query.queryKey[0] === "/api/contacts/search")
       });
       setDialogOpen(false);
+      setQuickAddOpen(false);
       setEditingContact(null);
       toast({
         title: "Success",
@@ -403,6 +406,14 @@ export default function Home() {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
+              <Button 
+                variant="outline"
+                onClick={() => setQuickAddOpen(true)} 
+                data-testid="button-quick-add"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Quick Add
+              </Button>
               <Button onClick={handleAddNew} data-testid="button-add-contact">
                 <Plus className="h-4 w-4 mr-2" />
                 Add Contact
@@ -771,6 +782,12 @@ export default function Home() {
       <ImportDialog
         open={importDialogOpen}
         onOpenChange={setImportDialogOpen}
+      />
+
+      <QuickAddDialog
+        open={quickAddOpen}
+        onOpenChange={setQuickAddOpen}
+        onSubmit={handleSubmit}
       />
     </div>
   );
