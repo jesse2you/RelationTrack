@@ -12,6 +12,14 @@ Personal CRM helps users track people they know with:
 - Clean, professional card-based interface with subtle color accents
 
 ## Recent Changes
+- October 11, 2025: Dashboard Analytics & Quick Actions
+  - Added analytics dashboard with 4 stat cards (total contacts, recent activity, due today, overdue)
+  - Implemented Recent Activity Feed in sidebar showing latest interactions across all contacts
+  - Built Quick Add dialog for faster contact creation with minimal fields (name, company, email)
+  - Activity feed auto-refreshes every 30 seconds and updates on all mutations
+  - Analytics use precise date calculations (< 7 days for recent contacts)
+  - Quick Add reuses existing mutation pipeline and closes properly on success
+
 - October 11, 2025: Bulk Operations & Advanced Features
   - Added contact selection with checkboxes and visual feedback (ring highlight)
   - Implemented bulk delete with confirmation dialog
@@ -82,6 +90,7 @@ Personal CRM helps users track people they know with:
 │   │   │   ├── ThemeToggle.tsx - Theme switcher
 │   │   │   ├── ContactCard.tsx - Contact display card with selection
 │   │   │   ├── ContactDialog.tsx - Add/edit contact form
+│   │   │   ├── QuickAddDialog.tsx - Quick add contact with minimal fields
 │   │   │   ├── ActivityTimeline.tsx - Activity history timeline
 │   │   │   └── ImportDialog.tsx - CSV/JSON import dialog
 │   │   ├── pages/
@@ -111,6 +120,7 @@ Personal CRM helps users track people they know with:
 - `DELETE /api/contacts/:id` - Delete a contact
 - `POST /api/contacts/:id/contacted` - Mark contact as contacted today
 - `GET /api/contacts/:id/activities` - Get activity timeline for a contact
+- `GET /api/activities/recent?limit={number}` - Get recent activities across all contacts (default 10)
 - `GET /api/contacts/export/csv` - Export all contacts as CSV file
 - `GET /api/contacts/export/json` - Export all contacts as JSON file
 
@@ -186,7 +196,28 @@ Activity {
    - Select all/deselect all functionality
    - Visual feedback with ring highlight on selected contacts
 
-10. **Dark Mode**: Full dark/light theme support with system preference detection
+10. **Dashboard Analytics**:
+   - Total contacts count
+   - Recent activity (contacted in last 7 days with strict < 7 day calculation)
+   - Due today (follow-ups scheduled for today)
+   - Overdue (follow-ups past due date)
+   - Visual stat cards with color-coded metrics using chart colors
+
+11. **Recent Activity Feed**:
+   - Sidebar feed showing latest interactions across all contacts
+   - Displays contact name, activity description, and relative timestamps
+   - Auto-refreshes every 30 seconds
+   - Scrollable feed with max height constraint
+   - Updates immediately on contact create/update/mark contacted
+
+12. **Quick Add**:
+   - Streamlined contact creation with minimal fields (name, company, email)
+   - Quick Add button in header for fast access
+   - Auto-focus on name field for immediate entry
+   - Reuses existing mutation pipeline for consistency
+   - Dialog closes automatically on successful submission
+
+13. **Dark Mode**: Full dark/light theme support with system preference detection
 
 ## Development
 
