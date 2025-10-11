@@ -36,13 +36,6 @@ export default function Home() {
 
   const { data: contacts = [], isLoading } = useQuery<Contact[]>({
     queryKey: searchQuery ? ["/api/contacts/search", searchQuery] : ["/api/contacts"],
-    queryFn: searchQuery
-      ? async () => {
-          const response = await fetch(`/api/contacts/search?q=${encodeURIComponent(searchQuery)}`);
-          if (!response.ok) throw new Error("Failed to search contacts");
-          return response.json();
-        }
-      : undefined,
   });
 
   const createMutation = useMutation({
