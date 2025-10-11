@@ -84,6 +84,11 @@ export function registerRoutes(app: Express) {
       content: m.content,
     }));
 
+    // Set headers for SSE (Server-Sent Events)
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+
     try {
       // Stream response from selected AI
       const stream = await openai.chat.completions.create({
@@ -91,11 +96,6 @@ export function registerRoutes(app: Express) {
         messages: chatMessages,
         stream: true,
       });
-
-      // Set headers for SSE (Server-Sent Events)
-      res.setHeader('Content-Type', 'text/event-stream');
-      res.setHeader('Cache-Control', 'no-cache');
-      res.setHeader('Connection', 'keep-alive');
 
       let fullResponse = '';
 
@@ -120,7 +120,9 @@ export function registerRoutes(app: Express) {
       res.end();
     } catch (error: any) {
       console.error('AI Error:', error);
-      res.status(500).json({ error: error.message });
+      res.write(`data: ${JSON.stringify({ error: error.message })}\n\n`);
+      res.write(`data: [DONE]\n\n`);
+      res.end();
     }
   });
 
