@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Edit, Trash2, Check, Clock } from "lucide-react";
 import { formatDistanceToNow, isPast, isToday } from "date-fns";
@@ -14,9 +15,11 @@ interface ContactCardProps {
   onEdit: (contact: Contact) => void;
   onDelete: (id: string) => void;
   onMarkContacted: (id: string) => void;
+  isSelected?: boolean;
+  onSelect?: (id: string, selected: boolean) => void;
 }
 
-export function ContactCard({ contact, onEdit, onDelete, onMarkContacted }: ContactCardProps) {
+export function ContactCard({ contact, onEdit, onDelete, onMarkContacted, isSelected = false, onSelect }: ContactCardProps) {
   const [timelineOpen, setTimelineOpen] = useState(false);
 
   const { data: activities = [], isLoading } = useQuery<Activity[]>({
@@ -58,18 +61,27 @@ export function ContactCard({ contact, onEdit, onDelete, onMarkContacted }: Cont
   };
 
   return (
-    <Card className={`border-l-4 ${getStatusColor()} hover-elevate transition-shadow`} data-testid={`card-contact-${contact.id}`}>
+    <Card className={`border-l-4 ${getStatusColor()} hover-elevate transition-shadow ${isSelected ? 'ring-2 ring-primary' : ''}`} data-testid={`card-contact-${contact.id}`}>
       <div className="p-4">
         <div className="flex items-start justify-between gap-4 mb-3">
-          <div className="flex-1 min-w-0">
-            <h3 className="font-medium text-base truncate" data-testid={`text-contact-name-${contact.id}`}>
-              {contact.name}
-            </h3>
-            {contact.company && (
-              <p className="text-sm text-muted-foreground truncate" data-testid={`text-company-${contact.id}`}>
-                {contact.company}
-              </p>
+          <div className="flex items-center gap-3 flex-1 min-w-0">
+            {onSelect && (
+              <Checkbox 
+                checked={isSelected}
+                onCheckedChange={(checked) => onSelect(contact.id, checked as boolean)}
+                data-testid={`checkbox-select-${contact.id}`}
+              />
             )}
+            <div className="flex-1 min-w-0">
+              <h3 className="font-medium text-base truncate" data-testid={`text-contact-name-${contact.id}`}>
+                {contact.name}
+              </h3>
+              {contact.company && (
+                <p className="text-sm text-muted-foreground truncate" data-testid={`text-company-${contact.id}`}>
+                  {contact.company}
+                </p>
+              )}
+            </div>
           </div>
           <div className="flex items-center gap-1">
             <Button

@@ -8,7 +8,7 @@ import { ImportDialog } from "@/components/ImportDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { Plus, Users, CalendarClock, Search, X, Download, FileJson, FileText, Upload, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { Plus, Users, CalendarClock, Search, X, Download, FileJson, FileText, Upload, ArrowUpDown, ArrowUp, ArrowDown, Trash2, Tag, CheckSquare, Square } from "lucide-react";
 import { isToday, isPast } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -31,6 +31,7 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<SortField>("name");
   const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const { toast } = useToast();
 
   const { data: contacts = [], isLoading } = useQuery<Contact[]>({
@@ -246,6 +247,106 @@ export default function Home() {
     return labels[field];
   };
 
+  const handleSelect = (id: string, selected: boolean) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (selected) {
+        next.add(id);
+      } else {
+        next.delete(id);
+      }
+      return next;
+    });
+  };
+
+  const handleSelectAll = () => {
+    if (selectedIds.size === filteredContacts.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filteredContacts.map(c => c.id)));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    
+    if (confirm(`Are you sure you want to delete ${selectedIds.size} contact(s)?`)) {
+      try {
+        await Promise.all(
+          Array.from(selectedIds).map(id => apiRequest("DELETE", `/api/contacts/${id}`))
+        );
+        
+        queryClient.invalidateQueries({ 
+          predicate: (query) => query.queryKey[0] === "/api/contacts" || 
+                                (Array.isArray(query.queryKey) && query.queryKey[0] === "/api/contacts/search")
+        });
+        
+        setSelectedIds(new Set());
+        
+        toast({
+          title: "Success",
+          description: `${selectedIds.size} contact(s) deleted successfully`,
+        });
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: "Failed to delete contacts",
+          variant: "destructive",
+        });
+      }
+    }
+  };
+
+  const handleBulkExport = (format: "csv" | "json") => {
+    const selectedContacts = contacts.filter(c => selectedIds.has(c.id));
+    
+    if (format === "csv") {
+      const headers = ["Name", "Company", "Email", "Phone", "Notes", "Last Contact Date", "Next Touch Date", "Tags"];
+      const csvRows = [
+        headers.join(","),
+        ...selectedContacts.map(c => [
+          `"${(c.name || '').replace(/"/g, '""')}"`,
+          `"${(c.company || '').replace(/"/g, '""')}"`,
+          `"${(c.email || '').replace(/"/g, '""')}"`,
+          `"${(c.phone || '').replace(/"/g, '""')}"`,
+          `"${(c.notes || '').replace(/"/g, '""')}"`,
+          c.lastContactDate ? new Date(c.lastContactDate).toISOString() : '',
+          c.nextTouchDate ? new Date(c.nextTouchDate).toISOString() : '',
+          `"${(c.tags || []).join('; ')}"`,
+        ].join(","))
+      ];
+      
+      const csvContent = csvRows.join("\n");
+      const blob = new Blob([csvContent], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `selected-contacts-${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } else {
+      const jsonContent = JSON.stringify(selectedContacts, null, 2);
+      const blob = new Blob([jsonContent], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `selected-contacts-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }
+    
+    setSelectedIds(new Set());
+    
+    toast({
+      title: "Export Complete",
+      description: `${selectedIds.size} contact(s) exported as ${format.toUpperCase()}`,
+    });
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -292,6 +393,63 @@ export default function Home() {
           </div>
         </div>
       </header>
+
+      {/* Bulk Actions Toolbar */}
+      {selectedIds.size > 0 && (
+        <div className="sticky top-[73px] z-40 border-b bg-muted/50 backdrop-blur">
+          <div className="container mx-auto px-4 py-3">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleSelectAll}
+                  data-testid="button-select-all"
+                >
+                  {selectedIds.size === filteredContacts.length ? (
+                    <CheckSquare className="h-4 w-4 mr-2" />
+                  ) : (
+                    <Square className="h-4 w-4 mr-2" />
+                  )}
+                  {selectedIds.size === filteredContacts.length ? "Deselect All" : "Select All"}
+                </Button>
+                <span className="text-sm text-muted-foreground">
+                  {selectedIds.size} contact(s) selected
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" data-testid="button-bulk-export">
+                      <Download className="h-4 w-4 mr-2" />
+                      Export Selected
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    <DropdownMenuItem onClick={() => handleBulkExport("csv")} data-testid="button-bulk-export-csv">
+                      <FileText className="h-4 w-4 mr-2" />
+                      Export as CSV
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleBulkExport("json")} data-testid="button-bulk-export-json">
+                      <FileJson className="h-4 w-4 mr-2" />
+                      Export as JSON
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleBulkDelete}
+                  data-testid="button-bulk-delete"
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete Selected
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="container mx-auto px-4 py-8">
         <div className="flex flex-col lg:flex-row gap-8">
@@ -489,6 +647,8 @@ export default function Home() {
                     onEdit={handleEdit}
                     onDelete={handleDelete}
                     onMarkContacted={markContactedMutation.mutate}
+                    isSelected={selectedIds.has(contact.id)}
+                    onSelect={handleSelect}
                   />
                 ))}
               </div>
