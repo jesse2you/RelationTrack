@@ -3,41 +3,35 @@ import { pgTable, text, varchar, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-export const contacts = pgTable("contacts", {
+export const conversations = pgTable("conversations", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  name: text("name").notNull(),
-  company: text("company"),
-  email: text("email"),
-  phone: text("phone"),
-  notes: text("notes"),
-  lastContactDate: timestamp("last_contact_date"),
-  nextTouchDate: timestamp("next_touch_date"),
-  tags: text("tags").array().notNull().default(sql`'{}'::text[]`),
+  title: text("title").notNull(),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });
 
-export const activities = pgTable("activities", {
+export const messages = pgTable("messages", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  contactId: varchar("contact_id").notNull().references(() => contacts.id, { onDelete: "cascade" }),
-  type: text("type").notNull(),
-  description: text("description").notNull(),
-  notes: text("notes"),
+  conversationId: varchar("conversation_id").notNull().references(() => conversations.id, { onDelete: "cascade" }),
+  role: text("role").notNull(), // 'user' or 'assistant'
+  content: text("content").notNull(),
+  aiProvider: text("ai_provider"), // which AI was used: 'openai', 'claude', 'gemini'
+  model: text("model"), // specific model used
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
-export const insertContactSchema = createInsertSchema(contacts).omit({
+export const insertConversationSchema = createInsertSchema(conversations).omit({
   id: true,
-}).extend({
-  tags: z.array(z.string()).default([]),
-  lastContactDate: z.union([z.date(), z.string().datetime()]).optional().transform(val => val ? new Date(val) : undefined),
-  nextTouchDate: z.union([z.date(), z.string().datetime()]).optional().transform(val => val ? new Date(val) : undefined),
+  createdAt: true,
+  updatedAt: true,
 });
 
-export const insertActivitySchema = createInsertSchema(activities).omit({
+export const insertMessageSchema = createInsertSchema(messages).omit({
   id: true,
   createdAt: true,
 });
 
-export type InsertContact = z.infer<typeof insertContactSchema>;
-export type Contact = typeof contacts.$inferSelect;
-export type Activity = typeof activities.$inferSelect;
-export type InsertActivity = z.infer<typeof insertActivitySchema>;
+export type InsertConversation = z.infer<typeof insertConversationSchema>;
+export type Conversation = typeof conversations.$inferSelect;
+export type InsertMessage = z.infer<typeof insertMessageSchema>;
+export type Message = typeof messages.$inferSelect;
