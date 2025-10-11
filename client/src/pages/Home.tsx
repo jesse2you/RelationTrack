@@ -8,7 +8,7 @@ import { ImportDialog } from "@/components/ImportDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { Plus, Users, CalendarClock, Search, X, Download, FileJson, FileText, Upload } from "lucide-react";
+import { Plus, Users, CalendarClock, Search, X, Download, FileJson, FileText, Upload, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { isToday, isPast } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -19,6 +19,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
+type SortField = "name" | "lastContactDate" | "nextTouchDate" | "company";
+type SortOrder = "asc" | "desc";
+
 export default function Home() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
@@ -26,6 +29,8 @@ export default function Home() {
   const [viewMode, setViewMode] = useState<"all" | "due">("all");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [sortBy, setSortBy] = useState<SortField>("name");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
   const { toast } = useToast();
 
   const { data: contacts = [], isLoading } = useQuery<Contact[]>({
@@ -160,7 +165,7 @@ export default function Home() {
   ).sort();
 
   // Filter contacts (only apply filters when not searching)
-  const filteredContacts = searchQuery ? contacts : contacts.filter((contact) => {
+  let filteredContacts = searchQuery ? contacts : contacts.filter((contact) => {
     // Filter by view mode
     if (viewMode === "due") {
       const hasDueDate = contact.nextTouchDate && 
@@ -180,6 +185,34 @@ export default function Home() {
     return true;
   });
 
+  // Sort contacts
+  filteredContacts = [...filteredContacts].sort((a, b) => {
+    let comparison = 0;
+    
+    switch (sortBy) {
+      case "name":
+        comparison = a.name.localeCompare(b.name);
+        break;
+      case "company":
+        const companyA = a.company || "";
+        const companyB = b.company || "";
+        comparison = companyA.localeCompare(companyB);
+        break;
+      case "lastContactDate":
+        const dateA = a.lastContactDate ? new Date(a.lastContactDate).getTime() : 0;
+        const dateB = b.lastContactDate ? new Date(b.lastContactDate).getTime() : 0;
+        comparison = dateA - dateB;
+        break;
+      case "nextTouchDate":
+        const nextA = a.nextTouchDate ? new Date(a.nextTouchDate).getTime() : 0;
+        const nextB = b.nextTouchDate ? new Date(b.nextTouchDate).getTime() : 0;
+        comparison = nextA - nextB;
+        break;
+    }
+    
+    return sortOrder === "asc" ? comparison : -comparison;
+  });
+
   const dueCount = contacts.filter(c => 
     c.nextTouchDate && (isToday(new Date(c.nextTouchDate)) || isPast(new Date(c.nextTouchDate)))
   ).length;
@@ -190,6 +223,27 @@ export default function Home() {
         ? prev.filter(t => t !== tag)
         : [...prev, tag]
     );
+  };
+
+  const handleSortChange = (field: SortField) => {
+    if (sortBy === field) {
+      // Toggle sort order if same field
+      setSortOrder(prev => prev === "asc" ? "desc" : "asc");
+    } else {
+      // Set new field with ascending order
+      setSortBy(field);
+      setSortOrder("asc");
+    }
+  };
+
+  const getSortLabel = (field: SortField) => {
+    const labels = {
+      name: "Name",
+      company: "Company",
+      lastContactDate: "Last Contact",
+      nextTouchDate: "Next Touch",
+    };
+    return labels[field];
   };
 
   return (
@@ -269,6 +323,54 @@ export default function Home() {
                     </button>
                   )}
                 </div>
+              </div>
+
+              {/* Sort Options */}
+              <div className="space-y-2">
+                <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+                  Sort By
+                </h2>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" className="w-full justify-between" data-testid="button-sort">
+                      <span className="flex items-center gap-2">
+                        <ArrowUpDown className="h-4 w-4" />
+                        {getSortLabel(sortBy)}
+                      </span>
+                      {sortOrder === "asc" ? (
+                        <ArrowUp className="h-4 w-4" />
+                      ) : (
+                        <ArrowDown className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-56">
+                    <DropdownMenuItem 
+                      onClick={() => handleSortChange("name")}
+                      data-testid="sort-name"
+                    >
+                      Name {sortBy === "name" && (sortOrder === "asc" ? "↑" : "↓")}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem 
+                      onClick={() => handleSortChange("company")}
+                      data-testid="sort-company"
+                    >
+                      Company {sortBy === "company" && (sortOrder === "asc" ? "↑" : "↓")}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem 
+                      onClick={() => handleSortChange("lastContactDate")}
+                      data-testid="sort-last-contact"
+                    >
+                      Last Contact {sortBy === "lastContactDate" && (sortOrder === "asc" ? "↑" : "↓")}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem 
+                      onClick={() => handleSortChange("nextTouchDate")}
+                      data-testid="sort-next-touch"
+                    >
+                      Next Touch {sortBy === "nextTouchDate" && (sortOrder === "asc" ? "↑" : "↓")}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
 
               {/* View Toggle */}
