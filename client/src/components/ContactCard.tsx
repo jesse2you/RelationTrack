@@ -1,9 +1,13 @@
-import { type Contact } from "@shared/schema";
+import { useState } from "react";
+import { type Contact, type Activity } from "@shared/schema";
+import { useQuery } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Edit, Trash2, Check } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Edit, Trash2, Check, Clock } from "lucide-react";
 import { formatDistanceToNow, isPast, isToday } from "date-fns";
+import { ActivityTimeline } from "./ActivityTimeline";
 
 interface ContactCardProps {
   contact: Contact;
@@ -13,6 +17,17 @@ interface ContactCardProps {
 }
 
 export function ContactCard({ contact, onEdit, onDelete, onMarkContacted }: ContactCardProps) {
+  const [timelineOpen, setTimelineOpen] = useState(false);
+
+  const { data: activities = [], isLoading } = useQuery<Activity[]>({
+    queryKey: ["/api/contacts", contact.id, "activities"],
+    queryFn: async () => {
+      const response = await fetch(`/api/contacts/${contact.id}/activities`);
+      if (!response.ok) throw new Error("Failed to fetch activities");
+      return response.json();
+    },
+    enabled: timelineOpen,
+  });
   const getStatusColor = () => {
     if (!contact.lastContactDate) {
       return "border-l-chart-3"; // Amber for never contacted
@@ -132,19 +147,42 @@ export function ContactCard({ contact, onEdit, onDelete, onMarkContacted }: Cont
           </div>
         )}
 
-        <div className="mt-4">
+        <div className="flex items-center gap-2 mt-4">
           <Button
             variant="outline"
             size="sm"
-            className="w-full"
+            className="flex-1"
             onClick={() => onMarkContacted(contact.id)}
             data-testid={`button-contacted-${contact.id}`}
           >
             <Check className="h-4 w-4 mr-2" />
             Contacted Today
           </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setTimelineOpen(true)}
+            data-testid={`button-timeline-${contact.id}`}
+          >
+            <Clock className="h-4 w-4" />
+          </Button>
         </div>
       </div>
+
+      <Dialog open={timelineOpen} onOpenChange={setTimelineOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Activity Timeline - {contact.name}</DialogTitle>
+          </DialogHeader>
+          {isLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <p className="text-sm text-muted-foreground">Loading timeline...</p>
+            </div>
+          ) : (
+            <ActivityTimeline activities={activities} />
+          )}
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }

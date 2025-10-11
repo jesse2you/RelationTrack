@@ -1,7 +1,7 @@
-import { type Contact, type InsertContact, contacts } from "@shared/schema";
+import { type Contact, type InsertContact, type Activity, type InsertActivity, contacts, activities } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "../db";
-import { eq, or, ilike, arrayContains, sql } from "drizzle-orm";
+import { eq, or, ilike, arrayContains, sql, desc } from "drizzle-orm";
 
 export interface IStorage {
   // Contacts
@@ -12,13 +12,19 @@ export interface IStorage {
   deleteContact(id: string): Promise<boolean>;
   markContactedToday(id: string): Promise<Contact | undefined>;
   searchContacts(query: string): Promise<Contact[]>;
+  
+  // Activities
+  getContactActivities(contactId: string): Promise<Activity[]>;
+  createActivity(activity: InsertActivity): Promise<Activity>;
 }
 
 export class MemStorage implements IStorage {
   private contacts: Map<string, Contact>;
+  private activities: Map<string, Activity>;
 
   constructor() {
     this.contacts = new Map();
+    this.activities = new Map();
   }
 
   async getAllContacts(): Promise<Contact[]> {
@@ -96,6 +102,24 @@ export class MemStorage implements IStorage {
       );
     });
   }
+
+  async getContactActivities(contactId: string): Promise<Activity[]> {
+    return Array.from(this.activities.values())
+      .filter(a => a.contactId === contactId)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  async createActivity(insertActivity: InsertActivity): Promise<Activity> {
+    const id = randomUUID();
+    const activity: Activity = {
+      ...insertActivity,
+      id,
+      notes: insertActivity.notes || null,
+      createdAt: new Date(),
+    };
+    this.activities.set(id, activity);
+    return activity;
+  }
 }
 
 export class DbStorage implements IStorage {
@@ -154,6 +178,19 @@ export class DbStorage implements IStorage {
           sql`EXISTS (SELECT 1 FROM unnest(${contacts.tags}) AS tag WHERE LOWER(tag) LIKE LOWER(${searchPattern}))`
         )
       );
+  }
+
+  async getContactActivities(contactId: string): Promise<Activity[]> {
+    return await db
+      .select()
+      .from(activities)
+      .where(eq(activities.contactId, contactId))
+      .orderBy(desc(activities.createdAt));
+  }
+
+  async createActivity(insertActivity: InsertActivity): Promise<Activity> {
+    const result = await db.insert(activities).values(insertActivity).returning();
+    return result[0];
   }
 }
 

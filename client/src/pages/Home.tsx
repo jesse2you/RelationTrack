@@ -53,10 +53,14 @@ export default function Home() {
     mutationFn: async ({ id, data }: { id: string; data: InsertContact }) => {
       return await apiRequest("PATCH", `/api/contacts/${id}`, data);
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ 
-        predicate: (query) => query.queryKey[0] === "/api/contacts" || 
-                              (Array.isArray(query.queryKey) && query.queryKey[0] === "/api/contacts/search")
+        predicate: (query) => {
+          const key = query.queryKey[0];
+          return key === "/api/contacts" || 
+                 (Array.isArray(query.queryKey) && key === "/api/contacts/search") ||
+                 (Array.isArray(query.queryKey) && query.queryKey[1] === variables.id && query.queryKey[2] === "activities");
+        }
       });
       setDialogOpen(false);
       setEditingContact(null);
@@ -87,10 +91,14 @@ export default function Home() {
     mutationFn: async (id: string) => {
       return await apiRequest("POST", `/api/contacts/${id}/contacted`, undefined);
     },
-    onSuccess: () => {
+    onSuccess: (_, id) => {
       queryClient.invalidateQueries({ 
-        predicate: (query) => query.queryKey[0] === "/api/contacts" || 
-                              (Array.isArray(query.queryKey) && query.queryKey[0] === "/api/contacts/search")
+        predicate: (query) => {
+          const key = query.queryKey[0];
+          return key === "/api/contacts" || 
+                 (Array.isArray(query.queryKey) && key === "/api/contacts/search") ||
+                 (Array.isArray(query.queryKey) && query.queryKey[1] === id && query.queryKey[2] === "activities");
+        }
       });
       toast({
         title: "Success",

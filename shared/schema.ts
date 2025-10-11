@@ -15,6 +15,15 @@ export const contacts = pgTable("contacts", {
   tags: text("tags").array().notNull().default(sql`'{}'::text[]`),
 });
 
+export const activities = pgTable("activities", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  contactId: varchar("contact_id").notNull().references(() => contacts.id, { onDelete: "cascade" }),
+  type: text("type").notNull(),
+  description: text("description").notNull(),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
 export const insertContactSchema = createInsertSchema(contacts).omit({
   id: true,
 }).extend({
@@ -23,5 +32,12 @@ export const insertContactSchema = createInsertSchema(contacts).omit({
   nextTouchDate: z.union([z.date(), z.string().datetime()]).optional().transform(val => val ? new Date(val) : undefined),
 });
 
+export const insertActivitySchema = createInsertSchema(activities).omit({
+  id: true,
+  createdAt: true,
+});
+
 export type InsertContact = z.infer<typeof insertContactSchema>;
 export type Contact = typeof contacts.$inferSelect;
+export type Activity = typeof activities.$inferSelect;
+export type InsertActivity = z.infer<typeof insertActivitySchema>;
