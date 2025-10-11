@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Plus, Users, CalendarClock, Search, X, Download, FileJson, FileText, Upload, ArrowUpDown, ArrowUp, ArrowDown, Trash2, Tag, CheckSquare, Square, TrendingUp, Clock, AlertCircle, Activity } from "lucide-react";
-import { isToday, isPast } from "date-fns";
+import { isToday, isPast, formatDistanceToNow } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import {
@@ -39,6 +39,11 @@ export default function Home() {
     queryKey: searchQuery ? ["/api/contacts/search", searchQuery] : ["/api/contacts"],
   });
 
+  const { data: recentActivities = [] } = useQuery<Array<{ id: string; contactId: string; contactName: string; type: string; description: string; createdAt: Date }>>({
+    queryKey: ["/api/activities/recent"],
+    refetchInterval: 30000, // Refetch every 30 seconds
+  });
+
   const createMutation = useMutation({
     mutationFn: async (data: InsertContact) => {
       return await apiRequest("POST", "/api/contacts", data);
@@ -46,6 +51,7 @@ export default function Home() {
     onSuccess: () => {
       queryClient.invalidateQueries({ 
         predicate: (query) => query.queryKey[0] === "/api/contacts" || 
+                              query.queryKey[0] === "/api/activities/recent" ||
                               (Array.isArray(query.queryKey) && query.queryKey[0] === "/api/contacts/search")
       });
       setDialogOpen(false);
@@ -66,6 +72,7 @@ export default function Home() {
         predicate: (query) => {
           const key = query.queryKey[0];
           return key === "/api/contacts" || 
+                 key === "/api/activities/recent" ||
                  (Array.isArray(query.queryKey) && key === "/api/contacts/search") ||
                  (Array.isArray(query.queryKey) && query.queryKey[1] === variables.id && query.queryKey[2] === "activities");
         }
@@ -104,6 +111,7 @@ export default function Home() {
         predicate: (query) => {
           const key = query.queryKey[0];
           return key === "/api/contacts" || 
+                 key === "/api/activities/recent" ||
                  (Array.isArray(query.queryKey) && key === "/api/contacts/search") ||
                  (Array.isArray(query.queryKey) && query.queryKey[1] === id && query.queryKey[2] === "activities");
         }
@@ -606,6 +614,30 @@ export default function Home() {
                       Clear filters
                     </Button>
                   )}
+                </div>
+              )}
+
+              {/* Recent Activity Feed */}
+              {recentActivities.length > 0 && (
+                <div className="space-y-2">
+                  <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+                    Recent Activity
+                  </h2>
+                  <div className="space-y-2 max-h-96 overflow-y-auto" data-testid="activity-feed">
+                    {recentActivities.map((activity) => (
+                      <Card key={activity.id} className="p-3 hover-elevate">
+                        <div className="space-y-1">
+                          <div className="flex items-start justify-between gap-2">
+                            <p className="text-sm font-medium line-clamp-1">{activity.contactName}</p>
+                            <span className="text-xs text-muted-foreground whitespace-nowrap">
+                              {formatDistanceToNow(new Date(activity.createdAt), { addSuffix: true })}
+                            </span>
+                          </div>
+                          <p className="text-xs text-muted-foreground line-clamp-2">{activity.description}</p>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>

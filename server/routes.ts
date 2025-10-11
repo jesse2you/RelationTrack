@@ -136,6 +136,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get recent activities across all contacts
+  app.get("/api/activities/recent", async (req, res) => {
+    try {
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
+      const activities = await storage.getRecentActivities(limit);
+      res.json(activities);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch recent activities" });
+    }
+  });
+
   // Import contacts from JSON or CSV
   app.post("/api/contacts/import", async (req, res) => {
     try {

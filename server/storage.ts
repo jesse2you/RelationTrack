@@ -15,6 +15,7 @@ export interface IStorage {
   
   // Activities
   getContactActivities(contactId: string): Promise<Activity[]>;
+  getRecentActivities(limit?: number): Promise<(Activity & { contactName: string })[]>;
   createActivity(activity: InsertActivity): Promise<Activity>;
 }
 
@@ -109,6 +110,20 @@ export class MemStorage implements IStorage {
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
   }
 
+  async getRecentActivities(limit: number = 10): Promise<(Activity & { contactName: string })[]> {
+    const sortedActivities = Array.from(this.activities.values())
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      .slice(0, limit);
+    
+    return sortedActivities.map(activity => {
+      const contact = this.contacts.get(activity.contactId);
+      return {
+        ...activity,
+        contactName: contact?.name || 'Unknown Contact',
+      };
+    });
+  }
+
   async createActivity(insertActivity: InsertActivity): Promise<Activity> {
     const id = randomUUID();
     const activity: Activity = {
@@ -186,6 +201,28 @@ export class DbStorage implements IStorage {
       .from(activities)
       .where(eq(activities.contactId, contactId))
       .orderBy(desc(activities.createdAt));
+  }
+
+  async getRecentActivities(limit: number = 10): Promise<(Activity & { contactName: string })[]> {
+    const results = await db
+      .select({
+        id: activities.id,
+        contactId: activities.contactId,
+        type: activities.type,
+        description: activities.description,
+        notes: activities.notes,
+        createdAt: activities.createdAt,
+        contactName: contacts.name,
+      })
+      .from(activities)
+      .leftJoin(contacts, eq(activities.contactId, contacts.id))
+      .orderBy(desc(activities.createdAt))
+      .limit(limit);
+    
+    return results.map(r => ({
+      ...r,
+      contactName: r.contactName || 'Unknown Contact',
+    }));
   }
 
   async createActivity(insertActivity: InsertActivity): Promise<Activity> {
