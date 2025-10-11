@@ -7,10 +7,16 @@ import { ContactDialog } from "@/components/ContactDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { Plus, Users, CalendarClock, Search, X } from "lucide-react";
+import { Plus, Users, CalendarClock, Search, X, Download, FileJson, FileText } from "lucide-react";
 import { isToday, isPast } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export default function Home() {
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -115,6 +121,20 @@ export default function Home() {
     }
   };
 
+  const handleExport = (format: "csv" | "json") => {
+    const link = document.createElement("a");
+    link.href = `/api/contacts/export/${format}`;
+    link.download = `contacts-${new Date().toISOString().split('T')[0]}.${format}`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    toast({
+      title: "Export Started",
+      description: `Your contacts are being exported as ${format.toUpperCase()}`,
+    });
+  };
+
   const handleEdit = (contact: Contact) => {
     setEditingContact(contact);
     setDialogOpen(true);
@@ -182,6 +202,24 @@ export default function Home() {
             </div>
             <div className="flex items-center gap-2">
               <ThemeToggle />
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" data-testid="button-export">
+                    <Download className="h-4 w-4 mr-2" />
+                    Export
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                  <DropdownMenuItem onClick={() => handleExport("csv")} data-testid="button-export-csv">
+                    <FileText className="h-4 w-4 mr-2" />
+                    Export as CSV
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleExport("json")} data-testid="button-export-json">
+                    <FileJson className="h-4 w-4 mr-2" />
+                    Export as JSON
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
               <Button onClick={handleAddNew} data-testid="button-add-contact">
                 <Plus className="h-4 w-4 mr-2" />
                 Add Contact

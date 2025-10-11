@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertContactSchema, insertActivitySchema } from "@shared/schema";
+import { insertContactSchema, insertActivitySchema, type Contact } from "@shared/schema";
 import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -136,7 +136,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Export contacts as CSV
+  app.get("/api/contacts/export/csv", async (_req, res) => {
+    try {
+      const contacts = await storage.getAllContacts();
+      
+      // CSV headers
+      const headers = ["Name", "Company", "Email", "Phone", "Notes", "Last Contact Date", "Next Touch Date", "Tags"];
+      const csvRows = [headers.join(",")];
+      
+      // CSV data
+      for (const contact of contacts) {
+        const row = [
+          escapeCSV(contact.name),
+          escapeCSV(contact.company || ""),
+          escapeCSV(contact.email || ""),
+          escapeCSV(contact.phone || ""),
+          escapeCSV(contact.notes || ""),
+          contact.lastContactDate ? new Date(contact.lastContactDate).toISOString() : "",
+          contact.nextTouchDate ? new Date(contact.nextTouchDate).toISOString() : "",
+          escapeCSV(contact.tags?.join("; ") || ""),
+        ];
+        csvRows.push(row.join(","));
+      }
+      
+      const csv = csvRows.join("\n");
+      
+      res.setHeader("Content-Type", "text/csv");
+      res.setHeader("Content-Disposition", `attachment; filename="contacts-${new Date().toISOString().split('T')[0]}.csv"`);
+      res.send(csv);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to export contacts" });
+    }
+  });
+
+  // Export contacts as JSON
+  app.get("/api/contacts/export/json", async (_req, res) => {
+    try {
+      const contacts = await storage.getAllContacts();
+      const json = JSON.stringify(contacts, null, 2);
+      
+      res.setHeader("Content-Type", "application/json");
+      res.setHeader("Content-Disposition", `attachment; filename="contacts-${new Date().toISOString().split('T')[0]}.json"`);
+      res.setHeader("Content-Length", Buffer.byteLength(json).toString());
+      res.send(json);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to export contacts" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;
+}
+
+// Helper function to escape CSV values
+function escapeCSV(value: string): string {
+  if (value.includes(",") || value.includes('"') || value.includes("\n")) {
+    return `"${value.replace(/"/g, '""')}"`;
+  }
+  return value;
 }
