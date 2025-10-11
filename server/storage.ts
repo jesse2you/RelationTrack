@@ -1,7 +1,7 @@
 import { type Contact, type InsertContact, contacts } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "../db";
-import { eq } from "drizzle-orm";
+import { eq, or, ilike, arrayContains, sql } from "drizzle-orm";
 
 export interface IStorage {
   // Contacts
@@ -11,6 +11,7 @@ export interface IStorage {
   updateContact(id: string, contact: InsertContact): Promise<Contact | undefined>;
   deleteContact(id: string): Promise<boolean>;
   markContactedToday(id: string): Promise<Contact | undefined>;
+  searchContacts(query: string): Promise<Contact[]>;
 }
 
 export class MemStorage implements IStorage {
@@ -81,6 +82,20 @@ export class MemStorage implements IStorage {
     this.contacts.set(id, updated);
     return updated;
   }
+
+  async searchContacts(query: string): Promise<Contact[]> {
+    const lowerQuery = query.toLowerCase();
+    return Array.from(this.contacts.values()).filter((contact) => {
+      return (
+        contact.name.toLowerCase().includes(lowerQuery) ||
+        contact.company?.toLowerCase().includes(lowerQuery) ||
+        contact.email?.toLowerCase().includes(lowerQuery) ||
+        contact.phone?.toLowerCase().includes(lowerQuery) ||
+        contact.notes?.toLowerCase().includes(lowerQuery) ||
+        contact.tags.some(tag => tag.toLowerCase().includes(lowerQuery))
+      );
+    });
+  }
 }
 
 export class DbStorage implements IStorage {
@@ -122,6 +137,23 @@ export class DbStorage implements IStorage {
       .where(eq(contacts.id, id))
       .returning();
     return result[0];
+  }
+
+  async searchContacts(query: string): Promise<Contact[]> {
+    const searchPattern = `%${query}%`;
+    return await db
+      .select()
+      .from(contacts)
+      .where(
+        or(
+          ilike(contacts.name, searchPattern),
+          ilike(contacts.company, searchPattern),
+          ilike(contacts.email, searchPattern),
+          ilike(contacts.phone, searchPattern),
+          ilike(contacts.notes, searchPattern),
+          sql`EXISTS (SELECT 1 FROM unnest(${contacts.tags}) AS tag WHERE LOWER(tag) LIKE LOWER(${searchPattern}))`
+        )
+      );
   }
 }
 

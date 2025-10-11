@@ -5,8 +5,9 @@ import { queryClient } from "@/lib/queryClient";
 import { ContactCard } from "@/components/ContactCard";
 import { ContactDialog } from "@/components/ContactDialog";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { Plus, Users, CalendarClock } from "lucide-react";
+import { Plus, Users, CalendarClock, Search, X } from "lucide-react";
 import { isToday, isPast } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -16,10 +17,18 @@ export default function Home() {
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
   const [viewMode, setViewMode] = useState<"all" | "due">("all");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
   const { toast } = useToast();
 
   const { data: contacts = [], isLoading } = useQuery<Contact[]>({
-    queryKey: ["/api/contacts"],
+    queryKey: searchQuery ? ["/api/contacts/search", searchQuery] : ["/api/contacts"],
+    queryFn: searchQuery
+      ? async () => {
+          const response = await fetch(`/api/contacts/search?q=${encodeURIComponent(searchQuery)}`);
+          if (!response.ok) throw new Error("Failed to search contacts");
+          return response.json();
+        }
+      : undefined,
   });
 
   const createMutation = useMutation({
@@ -27,7 +36,10 @@ export default function Home() {
       return await apiRequest("POST", "/api/contacts", data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/contacts"] });
+      queryClient.invalidateQueries({ 
+        predicate: (query) => query.queryKey[0] === "/api/contacts" || 
+                              (Array.isArray(query.queryKey) && query.queryKey[0] === "/api/contacts/search")
+      });
       setDialogOpen(false);
       setEditingContact(null);
       toast({
@@ -42,7 +54,10 @@ export default function Home() {
       return await apiRequest("PATCH", `/api/contacts/${id}`, data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/contacts"] });
+      queryClient.invalidateQueries({ 
+        predicate: (query) => query.queryKey[0] === "/api/contacts" || 
+                              (Array.isArray(query.queryKey) && query.queryKey[0] === "/api/contacts/search")
+      });
       setDialogOpen(false);
       setEditingContact(null);
       toast({
@@ -57,7 +72,10 @@ export default function Home() {
       return await apiRequest("DELETE", `/api/contacts/${id}`, undefined);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/contacts"] });
+      queryClient.invalidateQueries({ 
+        predicate: (query) => query.queryKey[0] === "/api/contacts" || 
+                              (Array.isArray(query.queryKey) && query.queryKey[0] === "/api/contacts/search")
+      });
       toast({
         title: "Success",
         description: "Contact deleted successfully",
@@ -70,7 +88,10 @@ export default function Home() {
       return await apiRequest("POST", `/api/contacts/${id}/contacted`, undefined);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/contacts"] });
+      queryClient.invalidateQueries({ 
+        predicate: (query) => query.queryKey[0] === "/api/contacts" || 
+                              (Array.isArray(query.queryKey) && query.queryKey[0] === "/api/contacts/search")
+      });
       toast({
         title: "Success",
         description: "Contact marked as contacted today",
@@ -108,8 +129,8 @@ export default function Home() {
     new Set(contacts.flatMap((c) => c.tags || []))
   ).sort();
 
-  // Filter contacts
-  const filteredContacts = contacts.filter((contact) => {
+  // Filter contacts (only apply filters when not searching)
+  const filteredContacts = searchQuery ? contacts : contacts.filter((contact) => {
     // Filter by view mode
     if (viewMode === "due") {
       const hasDueDate = contact.nextTouchDate && 
@@ -167,6 +188,33 @@ export default function Home() {
           {/* Sidebar */}
           <aside className="lg:w-64 shrink-0">
             <div className="space-y-6">
+              {/* Search */}
+              <div className="space-y-2">
+                <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+                  Search
+                </h2>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    type="text"
+                    placeholder="Search contacts..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-9 pr-9"
+                    data-testid="input-search"
+                  />
+                  {searchQuery && (
+                    <button
+                      onClick={() => setSearchQuery("")}
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      data-testid="button-clear-search"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+              </div>
+
               {/* View Toggle */}
               <div className="space-y-2">
                 <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">

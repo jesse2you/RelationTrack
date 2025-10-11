@@ -5,6 +5,20 @@ import { insertContactSchema } from "@shared/schema";
 import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Search contacts
+  app.get("/api/contacts/search", async (req, res) => {
+    try {
+      const query = req.query.q as string;
+      if (!query || query.trim() === "") {
+        return res.json([]);
+      }
+      const contacts = await storage.searchContacts(query);
+      res.json(contacts);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to search contacts" });
+    }
+  });
+
   // Get all contacts
   app.get("/api/contacts", async (_req, res) => {
     try {
