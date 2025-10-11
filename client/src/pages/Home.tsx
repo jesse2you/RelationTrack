@@ -4,10 +4,11 @@ import { type Contact, type InsertContact } from "@shared/schema";
 import { queryClient } from "@/lib/queryClient";
 import { ContactCard } from "@/components/ContactCard";
 import { ContactDialog } from "@/components/ContactDialog";
+import { ImportDialog } from "@/components/ImportDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { Plus, Users, CalendarClock, Search, X, Download, FileJson, FileText } from "lucide-react";
+import { Plus, Users, CalendarClock, Search, X, Download, FileJson, FileText, Upload } from "lucide-react";
 import { isToday, isPast } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -20,6 +21,7 @@ import {
 
 export default function Home() {
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
   const [viewMode, setViewMode] = useState<"all" | "due">("all");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
@@ -202,6 +204,14 @@ export default function Home() {
             </div>
             <div className="flex items-center gap-2">
               <ThemeToggle />
+              <Button 
+                variant="outline" 
+                onClick={() => setImportDialogOpen(true)}
+                data-testid="button-import"
+              >
+                <Upload className="h-4 w-4 mr-2" />
+                Import
+              </Button>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" data-testid="button-export">
@@ -391,6 +401,11 @@ export default function Home() {
         onSubmit={handleSubmit}
         contact={editingContact}
         isLoading={createMutation.isPending || updateMutation.isPending}
+      />
+
+      <ImportDialog
+        open={importDialogOpen}
+        onOpenChange={setImportDialogOpen}
       />
     </div>
   );

@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertContactSchema, insertActivitySchema, type Contact } from "@shared/schema";
+import { insertContactSchema, insertActivitySchema, type Contact, type InsertContact } from "@shared/schema";
 import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -136,6 +136,110 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Import contacts from JSON or CSV
+  app.post("/api/contacts/import", async (req, res) => {
+    try {
+      const { data, format } = req.body;
+      
+      if (!data || !format) {
+        return res.status(400).json({ error: "Missing data or format" });
+      }
+
+      let contacts: any[];
+      
+      if (format === "json") {
+        // Parse JSON data
+        try {
+          contacts = typeof data === "string" ? JSON.parse(data) : data;
+        } catch (error) {
+          return res.status(400).json({ error: "Invalid JSON format" });
+        }
+      } else if (format === "csv") {
+        // Parse CSV data
+        contacts = parseCSV(data);
+      } else {
+        return res.status(400).json({ error: "Unsupported format. Use 'json' or 'csv'" });
+      }
+
+      if (!Array.isArray(contacts)) {
+        return res.status(400).json({ error: "Data must be an array of contacts" });
+      }
+
+      const results = {
+        imported: 0,
+        failed: 0,
+        errors: [] as Array<{ row: number; error: string; data: any }>,
+      };
+
+      for (let i = 0; i < contacts.length; i++) {
+        const contactData = contacts[i];
+        try {
+          // Extract and parse dates
+          const lastContactDateStr = contactData.lastContactDate || contactData["Last Contact Date"];
+          const nextTouchDateStr = contactData.nextTouchDate || contactData["Next Touch Date"];
+          
+          // Parse dates to ISO strings if valid
+          let lastContactDate = undefined;
+          if (lastContactDateStr && lastContactDateStr.trim() !== "") {
+            const parsedDate = new Date(lastContactDateStr);
+            if (!isNaN(parsedDate.getTime())) {
+              lastContactDate = parsedDate;
+            }
+          }
+          
+          let nextTouchDate = undefined;
+          if (nextTouchDateStr && nextTouchDateStr.trim() !== "") {
+            const parsedDate = new Date(nextTouchDateStr);
+            if (!isNaN(parsedDate.getTime())) {
+              nextTouchDate = parsedDate;
+            }
+          }
+          
+          // Validate and sanitize data
+          const validated = insertContactSchema.parse({
+            name: contactData.name || contactData.Name,
+            company: contactData.company || contactData.Company || undefined,
+            email: contactData.email || contactData.Email || undefined,
+            phone: contactData.phone || contactData.Phone || undefined,
+            notes: contactData.notes || contactData.Notes || undefined,
+            lastContactDate,
+            nextTouchDate,
+            tags: Array.isArray(contactData.tags) 
+              ? contactData.tags 
+              : (contactData.tags || contactData.Tags)
+                ? String(contactData.tags || contactData.Tags).split(/[;,]/).map(t => t.trim()).filter(Boolean)
+                : [],
+          });
+
+          const contact = await storage.createContact(validated);
+          
+          // Only log activity if contact was successfully created
+          if (contact && contact.id) {
+            await storage.createActivity({
+              contactId: contact.id,
+              type: "created",
+              description: "Contact imported",
+              notes: null,
+            });
+          }
+          
+          results.imported++;
+        } catch (error) {
+          results.failed++;
+          results.errors.push({
+            row: i + 1,
+            error: error instanceof z.ZodError ? error.errors.map(e => e.message).join(", ") : "Invalid data",
+            data: contactData,
+          });
+        }
+      }
+
+      res.json(results);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to import contacts" });
+    }
+  });
+
   // Export contacts as CSV
   app.get("/api/contacts/export/csv", async (_req, res) => {
     try {
@@ -196,4 +300,86 @@ function escapeCSV(value: string): string {
     return `"${value.replace(/"/g, '""')}"`;
   }
   return value;
+}
+
+// Helper function to parse CSV into objects
+function parseCSV(csvText: string): any[] {
+  // Normalize line endings to \n
+  const normalizedText = csvText.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim();
+  if (!normalizedText) return [];
+  
+  const lines: string[] = [];
+  let currentLine = '';
+  let insideQuotes = false;
+  
+  // First pass: split into lines respecting quoted fields
+  for (let i = 0; i < normalizedText.length; i++) {
+    const char = normalizedText[i];
+    
+    if (char === '"') {
+      if (insideQuotes && normalizedText[i + 1] === '"') {
+        currentLine += '""';
+        i++;
+      } else {
+        insideQuotes = !insideQuotes;
+        currentLine += char;
+      }
+    } else if (char === '\n' && !insideQuotes) {
+      if (currentLine.trim()) {
+        lines.push(currentLine);
+      }
+      currentLine = '';
+    } else {
+      currentLine += char;
+    }
+  }
+  if (currentLine.trim()) {
+    lines.push(currentLine);
+  }
+  
+  if (lines.length < 2) return [];
+  
+  // Parse header row
+  const headers = parseCSVLine(lines[0]);
+  const results: any[] = [];
+  
+  // Parse data rows
+  for (let i = 1; i < lines.length; i++) {
+    const values = parseCSVLine(lines[i]);
+    const row: any = {};
+    headers.forEach((header, index) => {
+      row[header] = values[index] || '';
+    });
+    results.push(row);
+  }
+  
+  return results;
+}
+
+// Helper function to parse a single CSV line
+function parseCSVLine(line: string): string[] {
+  const values: string[] = [];
+  let currentValue = '';
+  let insideQuotes = false;
+  
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    
+    if (char === '"') {
+      if (insideQuotes && line[i + 1] === '"') {
+        currentValue += '"';
+        i++;
+      } else {
+        insideQuotes = !insideQuotes;
+      }
+    } else if (char === ',' && !insideQuotes) {
+      values.push(currentValue);
+      currentValue = '';
+    } else {
+      currentValue += char;
+    }
+  }
+  values.push(currentValue);
+  
+  return values.map(v => v.trim().replace(/^"|"$/g, ''));
 }
