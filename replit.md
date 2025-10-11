@@ -12,6 +12,12 @@ Personal CRM helps users track people they know with:
 - Clean, professional card-based interface with subtle color accents
 
 ## Recent Changes
+- October 11, 2025: PostgreSQL Migration
+  - Migrated from in-memory storage to PostgreSQL database
+  - Created DbStorage class using Drizzle ORM
+  - Database schema pushed and verified
+  - Data now persists across server restarts
+
 - October 11, 2025: Initial implementation
   - Created contact data schema with all fields
   - Built complete frontend with React, shadcn/ui components
@@ -24,7 +30,7 @@ Personal CRM helps users track people they know with:
 ### Technology Stack
 - **Frontend**: React, TypeScript, Tailwind CSS, shadcn/ui
 - **Backend**: Express.js, Node.js
-- **Storage**: In-memory storage (MemStorage)
+- **Database**: PostgreSQL with Drizzle ORM
 - **State Management**: React Query (TanStack Query)
 - **Routing**: Wouter
 - **Forms**: React Hook Form with Zod validation
@@ -47,8 +53,10 @@ Personal CRM helps users track people they know with:
 │   └── index.html
 ├── server/
 │   ├── routes.ts - API endpoints
-│   ├── storage.ts - In-memory storage implementation
+│   ├── storage.ts - Database storage implementation (DbStorage)
 │   └── index.ts - Server entry point
+├── db/
+│   └── index.ts - Drizzle database connection
 ├── shared/
 │   └── schema.ts - Shared data models and types
 └── design_guidelines.md - Design system documentation
@@ -108,7 +116,7 @@ Contact {
 
 The application runs on port 5000 and serves both frontend and backend.
 
-**Note:** The app uses in-memory storage, so data will be reset each time the server restarts.
+**Note:** The app now uses PostgreSQL for persistent storage. Data will be preserved across server restarts.
 
 ### Building for Production
 ```bash

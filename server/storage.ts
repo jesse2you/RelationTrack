@@ -1,5 +1,7 @@
-import { type Contact, type InsertContact } from "@shared/schema";
+import { type Contact, type InsertContact, contacts } from "@shared/schema";
 import { randomUUID } from "crypto";
+import { db } from "../db";
+import { eq } from "drizzle-orm";
 
 export interface IStorage {
   // Contacts
@@ -81,4 +83,46 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+export class DbStorage implements IStorage {
+  async getAllContacts(): Promise<Contact[]> {
+    return await db.select().from(contacts);
+  }
+
+  async getContact(id: string): Promise<Contact | undefined> {
+    const result = await db.select().from(contacts).where(eq(contacts.id, id));
+    return result[0];
+  }
+
+  async createContact(insertContact: InsertContact): Promise<Contact> {
+    const result = await db.insert(contacts).values(insertContact).returning();
+    return result[0];
+  }
+
+  async updateContact(
+    id: string,
+    insertContact: InsertContact
+  ): Promise<Contact | undefined> {
+    const result = await db
+      .update(contacts)
+      .set(insertContact)
+      .where(eq(contacts.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteContact(id: string): Promise<boolean> {
+    const result = await db.delete(contacts).where(eq(contacts.id, id)).returning();
+    return result.length > 0;
+  }
+
+  async markContactedToday(id: string): Promise<Contact | undefined> {
+    const result = await db
+      .update(contacts)
+      .set({ lastContactDate: new Date() })
+      .where(eq(contacts.id, id))
+      .returning();
+    return result[0];
+  }
+}
+
+export const storage = new DbStorage();
