@@ -12,6 +12,29 @@ Personal CRM helps users track people they know with:
 - Clean, professional card-based interface with subtle color accents
 
 ## Recent Changes
+- October 11, 2025: Bulk Operations & Advanced Features
+  - Added contact selection with checkboxes and visual feedback (ring highlight)
+  - Implemented bulk delete with confirmation dialog
+  - Added bulk export for selected contacts (CSV and JSON)
+  - Built sticky bulk actions toolbar that appears when contacts are selected
+  - Select all/deselect all functionality
+  - Selection state properly cleared after operations
+
+- October 11, 2025: Advanced Sorting
+  - Added sorting by name, company, last contact date, and next touch date
+  - Implemented ascending/descending toggle with visual indicators
+  - Sort dropdown in sidebar with clear UI feedback
+  - Proper handling of null/empty values in sorting
+  - Works seamlessly with filters and search
+
+- October 11, 2025: Contact Import
+  - Built CSV and JSON import functionality with file upload
+  - Robust CSV parser handles CRLF, quoted fields, and escaped quotes
+  - Date validation and normalization for optional date fields
+  - Import results dialog shows success/failure counts with error details
+  - Automatic activity logging for imported contacts
+  - Proper cache invalidation after import
+
 - October 11, 2025: Activity Timeline & Data Export
   - Added activity history tracking (created, updated, contacted events)
   - Built ActivityTimeline component with visual timeline display
@@ -57,9 +80,10 @@ Personal CRM helps users track people they know with:
 │   │   ├── components/
 │   │   │   ├── ThemeProvider.tsx - Dark mode context
 │   │   │   ├── ThemeToggle.tsx - Theme switcher
-│   │   │   ├── ContactCard.tsx - Contact display card
+│   │   │   ├── ContactCard.tsx - Contact display card with selection
 │   │   │   ├── ContactDialog.tsx - Add/edit contact form
-│   │   │   └── ActivityTimeline.tsx - Activity history timeline
+│   │   │   ├── ActivityTimeline.tsx - Activity history timeline
+│   │   │   └── ImportDialog.tsx - CSV/JSON import dialog
 │   │   ├── pages/
 │   │   │   ├── Home.tsx - Main dashboard
 │   │   │   └── not-found.tsx - 404 page
@@ -81,6 +105,7 @@ Personal CRM helps users track people they know with:
 - `GET /api/contacts` - Get all contacts
 - `GET /api/contacts/search?q={query}` - Search contacts across all fields
 - `POST /api/contacts` - Create a new contact
+- `POST /api/contacts/import` - Import contacts from CSV or JSON
 - `GET /api/contacts/:id` - Get a specific contact
 - `PATCH /api/contacts/:id` - Update a contact
 - `DELETE /api/contacts/:id` - Delete a contact
@@ -141,12 +166,27 @@ Activity {
    - Timestamp display with relative time formatting
    - Accessible via timeline button on contact cards
 
-7. **Data Export**:
+7. **Advanced Sorting**:
+   - Sort contacts by name, company, last contact date, or next touch date
+   - Toggle between ascending and descending order
+   - Visual indicators for current sort field and direction
+   - Proper handling of null/empty values
+
+8. **Data Import/Export**:
+   - Import contacts from CSV or JSON files with validation
    - Export all contacts as CSV with proper formatting
    - Export all contacts as JSON with pretty printing
+   - Export selected contacts (bulk export)
    - Automatic file download with timestamped filenames
 
-8. **Dark Mode**: Full dark/light theme support with system preference detection
+9. **Bulk Operations**:
+   - Select multiple contacts with checkboxes
+   - Bulk delete with confirmation dialog
+   - Bulk export selected contacts (CSV/JSON)
+   - Select all/deselect all functionality
+   - Visual feedback with ring highlight on selected contacts
+
+10. **Dark Mode**: Full dark/light theme support with system preference detection
 
 ## Development
 
