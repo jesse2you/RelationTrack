@@ -1,38 +1,46 @@
 # Qwenticinicial - Multi-Agent AI Orchestration Platform
 
-## What This Is
-**ONE unified multi-agent platform** merging PhoneSyncGo, MeetingMate, A1AgentQuery, and RelationTrack into **Qwenticinicial** - your AI army to help with learning, organization, and on-the-go productivity.
+## 🎯 TRUE VISION: n8n-Style Autonomous Agent Orchestration
 
-## Core Vision & Goals
+**READ THIS FIRST:** See [VISION.md](./VISION.md) for the complete architecture vision.
 
-### Inter-Agent Communication & Memory
-**THE PRIMARY GOAL:** Agents must communicate with each other and share memory across all conversations.
-- Agents work in **union** - harmonious, synchronous support
-- Shared knowledge base - all agents know what others have discussed
-- Cross-conversation memory - agents remember user context, preferences, goals
-- Multi-agent collaboration - agents can call each other for help mid-conversation
+**What Qwenticinicial SHOULD BE:** An n8n-style autonomous multi-agent orchestration platform where a Master Orchestrator delegates tasks to specialist agents who execute autonomously and compile results - NOT just a chat app.
 
-### User Customization & Tiers
-**THE PLATFORM IS CUSTOMIZABLE:**
-- Each user can format and customize their experience
-- Tier-based pricing system with different levels of access
-- Different tiers unlock different customization options and agent capabilities
-- Scalable from free to premium experiences
+**Inspiration:** [n8n Multi-Agent Orchestration](https://www.youtube.com/watch?v=u2NluvotA80&t=5s) and [AI Army Architecture](https://www.youtube.com/watch?v=9FuNtfsnRNo)
 
-### How It Works (Multi-Agent Coordination)
+## Current Implementation Status
+
+### ✅ What's Working (Foundation)
+- Multi-agent chat interface with 5 specialized agents
+- Cross-conversation memory system (agents remember context)
+- Agent collaboration (agents can call each other)
+- Database storage (conversations, messages, memory, tasks)
+- Organization tools (tasks, meetings, schedules)
+- Tier system infrastructure (ready for free/pro/premium)
+
+### 🚧 What's Needed (n8n-Style Orchestration)
+- **Master Orchestrator** - Analyzes requests, creates execution plans, delegates to specialists
+- **Autonomous Execution** - Agents work without constant user input
+- **Visual Dashboard** - Real-time orchestration view showing agent activity
+- **Task Chaining** - Multi-step workflows with automatic agent coordination
+- **Self-Organization** - Agents create sub-tasks for other agents
+
+### Target Architecture
 ```
-YOU ASK A QUESTION
+USER REQUEST
     ↓
-SMART ROUTING (keyword analysis)
+MASTER ORCHESTRATOR (Head Coordinator)
     ↓
-SELECTS BEST SPECIALIZED AGENT:
-• Learning Coach (GPT-4o) → Learning guidance
-• Teaching Assistant (GPT-4o-mini) → Content creation
-• Research Agent (O3-mini) → Analysis & insights
-• Task Manager (GPT-4o-mini) → Project organization
-• Head Coordinator (GPT-4o-mini) → General queries
+ANALYZES → CREATES PLAN → DELEGATES
     ↓
-STREAMS RESPONSE BACK TO YOU
+┌─────────────┬──────────────┬─────────────┬──────────────┐
+│ Learning    │ Research     │ Task        │ Teaching     │
+│ Coach       │ Agent        │ Manager     │ Assistant    │
+└─────────────┴──────────────┴─────────────┴──────────────┘
+    ↓
+AUTONOMOUS EXECUTION (Parallel)
+    ↓
+RESULTS COMPILED → DELIVERED
 ```
 
 ## Project Structure (ONE Application)
