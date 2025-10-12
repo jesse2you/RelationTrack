@@ -272,10 +272,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           taskType,
         });
         
-        // Extract and save memories from this conversation turn
-        extractAndSaveMemories(userId, conversationId, content, fullResponse, agentRole).catch(err => {
-          console.error('Background memory extraction failed:', err);
-        });
+        // Extract and save memories from this conversation turn (with comprehensive logging)
+        console.log(`🚀 Starting memory extraction - userId: ${userId}, conversationId: ${conversationId}`);
+        extractAndSaveMemories(userId, conversationId, content, fullResponse, agentRole)
+          .then(() => {
+            console.log('✅ Memory extraction completed successfully');
+          })
+          .catch(err => {
+            console.error('❌ Background memory extraction failed:', err);
+            console.error('Error stack:', err.stack);
+          });
         
         res.write(`data: [DONE]\n\n`);
         res.end();
@@ -311,10 +317,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           taskType,
         });
 
-        // Extract and save memories from this conversation turn (background task)
-        extractAndSaveMemories(userId, conversationId, content, fullResponse, agentRole).catch(err => {
-          console.error('Background memory extraction failed:', err);
-        });
+        // Extract and save memories from this conversation turn (with comprehensive logging)
+        console.log(`🚀 Starting memory extraction - userId: ${userId}, conversationId: ${conversationId}`);
+        extractAndSaveMemories(userId, conversationId, content, fullResponse, agentRole)
+          .then(() => {
+            console.log('✅ Memory extraction completed successfully');
+          })
+          .catch(err => {
+            console.error('❌ Background memory extraction failed:', err);
+            console.error('Error stack:', err.stack);
+          });
 
         res.write(`data: [DONE]\n\n`);
         res.end();

@@ -416,8 +416,13 @@ export async function extractAndSaveMemories(
   agentResponse: string,
   agentRole: string
 ): Promise<void> {
+  console.log(`📝 extractAndSaveMemories called - userId: ${userId}, agent: ${agentRole}`);
+  console.log(`User message: "${userMessage.substring(0, 100)}..."`);
+  console.log(`Agent response: "${agentResponse.substring(0, 100)}..."`);
+  
   try {
     // Use GPT-4o-mini to extract important information
+    console.log('🤖 Calling GPT-4o-mini for memory extraction...');
     const extractionPrompt = `You are a memory extraction AI. Analyze this conversation turn and extract any important information about the user that should be remembered for future conversations.
 
 Extract:
@@ -438,36 +443,42 @@ Return a JSON array of memories. Each memory should have:
 Only extract truly important information. Skip generic responses. Return empty array [] if nothing important to remember.
 
 Example:
-[
-  {
-    "memoryType": "goal",
-    "category": "learning",
-    "content": "User wants to learn Python for data science",
-    "importance": "high"
-  }
-]
+{
+  "memories": [
+    {
+      "memoryType": "goal",
+      "category": "learning",
+      "content": "User wants to learn Python for data science",
+      "importance": "high"
+    }
+  ]
+}
 
-Response (JSON array only):`;
+Response (JSON object with memories array):`;
 
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
         { role: "user", content: extractionPrompt }
       ],
-      temperature: 0.3, // Lower temperature for more consistent extraction
+      temperature: 0.3,
       response_format: { type: "json_object" }
     });
 
     const response = completion.choices[0]?.message?.content;
-    if (!response) return;
+    if (!response) {
+      console.log('⚠️ No response from memory extraction');
+      return;
+    }
 
     let memories;
     try {
       const parsed = JSON.parse(response);
-      // Handle both { memories: [...] } and direct array formats
-      memories = Array.isArray(parsed) ? parsed : (parsed.memories || []);
+      memories = parsed.memories || [];
+      console.log(`🔍 Memory extraction found ${memories.length} memories`);
     } catch (parseError) {
-      console.error('Failed to parse memory extraction:', parseError);
+      console.error('❌ Failed to parse memory extraction:', parseError);
+      console.error('Response was:', response);
       return;
     }
 
