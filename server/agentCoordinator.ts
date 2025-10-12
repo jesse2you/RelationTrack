@@ -274,11 +274,42 @@ const TASK_MANAGER_TOOLS = [
         properties: {}
       }
     }
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "consult_agent",
+      description: "Ask another specialized agent for help with a specific question. Use this to collaborate with other agents for better results.",
+      parameters: {
+        type: "object",
+        properties: {
+          agent: {
+            type: "string",
+            enum: ["learning_coach", "teaching_assistant", "research_agent", "task_manager", "coordinator"],
+            description: "Which agent to consult: learning_coach (learning guidance), teaching_assistant (create lessons), research_agent (analysis), task_manager (organization), coordinator (general)"
+          },
+          question: {
+            type: "string",
+            description: "The specific question to ask the other agent"
+          },
+          context: {
+            type: "string",
+            description: "Brief context about why you're consulting this agent"
+          }
+        },
+        required: ["agent", "question"]
+      }
+    }
   }
 ];
 
 // Execute a function call
-export async function executeFunction(functionName: string, args: any): Promise<any> {
+export async function executeFunction(
+  functionName: string, 
+  args: any, 
+  conversationId: string = '', 
+  primaryAgent: string = 'coordinator'
+): Promise<any> {
   try {
     switch (functionName) {
       case "create_task":
@@ -317,6 +348,35 @@ export async function executeFunction(functionName: string, args: any): Promise<
       case "get_tasks":
         const tasks = await storage.getTasks();
         return { success: true, tasks };
+      
+      case "consult_agent":
+        // Agent collaboration - one agent asks another for help
+        const consultResponse = await generateAgentResponse(
+          args.agent,
+          [{ role: "user", content: args.question }],
+          false, // Non-streaming for collaboration
+          "default_user"
+        );
+        const consultAnswer = consultResponse.choices[0].message.content;
+        
+        // Log the interaction ONLY if we have a valid conversationId
+        if (conversationId) {
+          try {
+            await storage.createAgentInteraction({
+              userId: "default_user",
+              conversationId,
+              primaryAgent,
+              collaboratingAgents: [args.agent],
+              interactionType: "collaborative",
+              outcome: `Consulted ${args.agent} about: ${args.question}`
+            });
+          } catch (logError) {
+            // Silently fail logging - don't break collaboration
+            console.error('Failed to log agent interaction:', logError);
+          }
+        }
+        
+        return { success: true, answer: consultAnswer, agent: args.agent };
       
       default:
         return { success: false, error: "Unknown function" };
@@ -380,16 +440,26 @@ export async function generateAgentResponse(
   
   const allMessages = [systemMessage, ...recentMessages];
   
-  // Add tools for Task Manager agent
+  // Add tools based on agent role
   const options: any = {
     model: agent.model,
     messages: allMessages,
     stream,
   };
   
+  // Task Manager gets all organization + collaboration tools
   if (agentRole === "task_manager") {
     options.tools = TASK_MANAGER_TOOLS;
     options.tool_choice = "auto";
+  } 
+  // All other agents get collaboration tool only (for agent handoff)
+  else if (agentRole !== "coordinator") {
+    // Extract just the consult_agent tool from TASK_MANAGER_TOOLS
+    const collaborationTool = TASK_MANAGER_TOOLS.find(t => t.function.name === "consult_agent");
+    if (collaborationTool) {
+      options.tools = [collaborationTool];
+      options.tool_choice = "auto";
+    }
   }
   
   return await openai.chat.completions.create(options);

@@ -220,8 +220,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           try {
             const functionArgs = JSON.parse(toolCall.function.arguments);
             
-            // Execute the function
-            const result = await executeFunction(functionName, functionArgs);
+            // Execute the function with conversation context
+            const result = await executeFunction(functionName, functionArgs, conversationId, agentRole);
             
             // Get confirmation message from AI
             const confirmationMessages = [
