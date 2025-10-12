@@ -8,6 +8,9 @@ import {
   tasks,
   meetings,
   schedules,
+  userMemory,
+  userTiers,
+  agentInteractions,
   type InsertConversation, 
   type Conversation, 
   type InsertMessage, 
@@ -23,9 +26,15 @@ import {
   type InsertMeeting,
   type Meeting,
   type InsertSchedule,
-  type Schedule
+  type Schedule,
+  type InsertUserMemory,
+  type UserMemory,
+  type InsertUserTier,
+  type UserTier,
+  type InsertAgentInteraction,
+  type AgentInteraction
 } from "@shared/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 
 export interface IStorage {
   // Users (for authentication)
@@ -71,6 +80,21 @@ export interface IStorage {
   createSchedule(data: InsertSchedule): Promise<Schedule>;
   updateSchedule(id: string, data: Partial<InsertSchedule>): Promise<Schedule>;
   deleteSchedule(id: string): Promise<void>;
+  
+  // User Memory - Cross-Conversation Context
+  getUserMemories(userId?: string): Promise<UserMemory[]>;
+  getUserMemoriesByCategory(userId: string, category: string): Promise<UserMemory[]>;
+  createUserMemory(data: InsertUserMemory): Promise<UserMemory>;
+  updateUserMemory(id: string, data: Partial<InsertUserMemory>): Promise<UserMemory>;
+  deleteUserMemory(id: string): Promise<void>;
+  
+  // User Tiers
+  getUserTier(userId?: string): Promise<UserTier | undefined>;
+  createOrUpdateUserTier(data: InsertUserTier): Promise<UserTier>;
+  
+  // Agent Interactions
+  getAgentInteractions(userId?: string): Promise<AgentInteraction[]>;
+  createAgentInteraction(data: InsertAgentInteraction): Promise<AgentInteraction>;
 }
 
 export class DbStorage implements IStorage {
@@ -252,6 +276,72 @@ export class DbStorage implements IStorage {
 
   async deleteSchedule(id: string): Promise<void> {
     await db.delete(schedules).where(eq(schedules.id, id));
+  }
+
+  // User Memory - Cross-Conversation Context
+  async getUserMemories(userId: string = 'default_user'): Promise<UserMemory[]> {
+    return await db.select().from(userMemory)
+      .where(eq(userMemory.userId, userId))
+      .orderBy(desc(userMemory.importance), desc(userMemory.updatedAt));
+  }
+
+  async getUserMemoriesByCategory(userId: string, category: string): Promise<UserMemory[]> {
+    return await db.select().from(userMemory)
+      .where(and(
+        eq(userMemory.userId, userId),
+        eq(userMemory.category, category)
+      ))
+      .orderBy(desc(userMemory.importance), desc(userMemory.updatedAt));
+  }
+
+  async createUserMemory(data: InsertUserMemory): Promise<UserMemory> {
+    const result = await db.insert(userMemory).values(data).returning();
+    return result[0];
+  }
+
+  async updateUserMemory(id: string, data: Partial<InsertUserMemory>): Promise<UserMemory> {
+    const result = await db.update(userMemory)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(userMemory.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteUserMemory(id: string): Promise<void> {
+    await db.delete(userMemory).where(eq(userMemory.id, id));
+  }
+
+  // User Tiers
+  async getUserTier(userId: string = 'default_user'): Promise<UserTier | undefined> {
+    const result = await db.select().from(userTiers).where(eq(userTiers.userId, userId));
+    return result[0];
+  }
+
+  async createOrUpdateUserTier(data: InsertUserTier): Promise<UserTier> {
+    const result = await db
+      .insert(userTiers)
+      .values(data)
+      .onConflictDoUpdate({
+        target: userTiers.userId,
+        set: {
+          ...data,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return result[0];
+  }
+
+  // Agent Interactions
+  async getAgentInteractions(userId: string = 'default_user'): Promise<AgentInteraction[]> {
+    return await db.select().from(agentInteractions)
+      .where(eq(agentInteractions.userId, userId))
+      .orderBy(desc(agentInteractions.createdAt));
+  }
+
+  async createAgentInteraction(data: InsertAgentInteraction): Promise<AgentInteraction> {
+    const result = await db.insert(agentInteractions).values(data).returning();
+    return result[0];
   }
 }
 

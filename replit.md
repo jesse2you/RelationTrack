@@ -3,6 +3,22 @@
 ## What This Is
 **ONE unified multi-agent platform** merging PhoneSyncGo, MeetingMate, A1AgentQuery, and RelationTrack into **Qwenticinicial** - your AI army to help with learning, organization, and on-the-go productivity.
 
+## Core Vision & Goals
+
+### Inter-Agent Communication & Memory
+**THE PRIMARY GOAL:** Agents must communicate with each other and share memory across all conversations.
+- Agents work in **union** - harmonious, synchronous support
+- Shared knowledge base - all agents know what others have discussed
+- Cross-conversation memory - agents remember user context, preferences, goals
+- Multi-agent collaboration - agents can call each other for help mid-conversation
+
+### User Customization & Tiers
+**THE PLATFORM IS CUSTOMIZABLE:**
+- Each user can format and customize their experience
+- Tier-based pricing system with different levels of access
+- Different tiers unlock different customization options and agent capabilities
+- Scalable from free to premium experiences
+
 ### How It Works (Multi-Agent Coordination)
 ```
 YOU ASK A QUESTION

@@ -162,3 +162,67 @@ export type InsertMeeting = z.infer<typeof insertMeetingSchema>;
 export type Meeting = typeof meetings.$inferSelect;
 export type InsertSchedule = z.infer<typeof insertScheduleSchema>;
 export type Schedule = typeof schedules.$inferSelect;
+
+// User Memory System - Cross-Conversation Context
+export const userMemory = pgTable("user_memory", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().default('default_user'),
+  memoryType: text("memory_type").notNull(), // 'goal', 'preference', 'fact', 'context'
+  category: text("category"), // 'learning', 'work', 'personal', 'skills'
+  content: text("content").notNull(), // The actual memory/fact
+  importance: text("importance").default('medium'), // 'low', 'medium', 'high'
+  sourceAgent: text("source_agent"), // Which agent learned this
+  sourceConversationId: varchar("source_conversation_id").references(() => conversations.id),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+// User Tier System - Subscription Levels
+export const userTiers = pgTable("user_tiers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().unique().default('default_user'),
+  tier: text("tier").notNull().default('free'), // 'free', 'pro', 'premium'
+  features: text("features").array(), // List of enabled features
+  customizationLevel: text("customization_level").default('basic'), // 'basic', 'advanced', 'full'
+  agentAccess: text("agent_access").array(), // Which agents user can access
+  messagesPerMonth: text("messages_per_month").default('100'), // Message limit
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+// Agent Interaction Log - Track agent collaboration
+export const agentInteractions = pgTable("agent_interactions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().default('default_user'),
+  conversationId: varchar("conversation_id").notNull().references(() => conversations.id),
+  primaryAgent: text("primary_agent").notNull(), // Main agent handling request
+  collaboratingAgents: text("collaborating_agents").array(), // Other agents involved
+  interactionType: text("interaction_type"), // 'solo', 'handoff', 'collaborative'
+  outcome: text("outcome"), // What was accomplished
+  memoryCreated: boolean("memory_created").default(false), // Did this create user memory?
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const insertUserMemorySchema = createInsertSchema(userMemory).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertUserTierSchema = createInsertSchema(userTiers).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertAgentInteractionSchema = createInsertSchema(agentInteractions).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertUserMemory = z.infer<typeof insertUserMemorySchema>;
+export type UserMemory = typeof userMemory.$inferSelect;
+export type InsertUserTier = z.infer<typeof insertUserTierSchema>;
+export type UserTier = typeof userTiers.$inferSelect;
+export type InsertAgentInteraction = z.infer<typeof insertAgentInteractionSchema>;
+export type AgentInteraction = typeof agentInteractions.$inferSelect;
