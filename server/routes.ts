@@ -1,7 +1,9 @@
 import type { Express } from "express";
-import { createServer } from "http";
+import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertConversationSchema, insertMessageSchema, insertUserSettingsSchema, insertUserFeedbackSchema } from "@shared/schema";
+import { db } from "../db";
+import { insertConversationSchema, insertMessageSchema, insertUserSettingsSchema, insertUserFeedbackSchema, userFeedback, users } from "@shared/schema";
+import { setupAuth, isAuthenticated, isAdmin } from "./replitAuth";
 import OpenAI from "openai";
 
 const openai = new OpenAI({
@@ -32,7 +34,22 @@ function selectAIProvider(question: string): { provider: string; model: string }
   return { provider: 'openai', model: 'gpt-4o-mini' };
 }
 
-export function registerRoutes(app: Express) {
+export async function registerRoutes(app: Express): Promise<Server> {
+  // Setup authentication
+  await setupAuth(app);
+
+  // Auth routes
+  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      res.json(user);
+    } catch (error) {
+      console.error("Error fetching user:", error);
+      res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
+
   const server = createServer(app);
 
   // Get all conversations
@@ -147,6 +164,75 @@ export function registerRoutes(app: Express) {
       res.write(`data: ${JSON.stringify({ error: error.message })}\n\n`);
       res.write(`data: [DONE]\n\n`);
       res.end();
+    }
+  });
+
+  // ============ ADMIN ROUTES ============
+  
+  // Admin: Get platform analytics
+  app.get("/api/admin/analytics", isAdmin, async (_req, res) => {
+    try {
+      const conversations = await storage.getConversations();
+      const feedback = await db.select().from(userFeedback);
+      const allUsers = await db.select().from(users);
+      
+      res.json({
+        totalConversations: conversations.length,
+        totalUsers: allUsers.length,
+        totalFeedback: feedback.length,
+        adminCount: allUsers.filter((u: any) => u.isAdmin).length,
+      });
+    } catch (error) {
+      console.error("Admin analytics error:", error);
+      res.status(500).json({ message: "Failed to fetch analytics" });
+    }
+  });
+
+  // Admin: AI Assistant endpoint (private AI for admin)
+  app.post("/api/admin/assistant", isAdmin, async (req, res) => {
+    const { message } = req.body;
+    
+    try {
+      // This is the admin's private AI assistant
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          {
+            role: "system",
+            content: "You are an admin assistant for an AI Learning Platform. Help the admin manage the platform, analyze data, moderate content, and make decisions. Provide insights and recommendations."
+          },
+          {
+            role: "user",
+            content: message
+          }
+        ],
+        stream: false,
+      });
+
+      res.json({ response: completion.choices[0].message.content });
+    } catch (error: any) {
+      console.error("Admin AI error:", error);
+      res.status(500).json({ message: "AI assistant error" });
+    }
+  });
+
+  // Admin: Toggle user admin status
+  app.post("/api/admin/users/:id/toggle-admin", isAdmin, async (req, res) => {
+    try {
+      const user = await storage.getUser(req.params.id);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const updated = await storage.upsertUser({
+        ...user,
+        isAdmin: !user.isAdmin,
+      });
+
+      res.json(updated);
+    } catch (error) {
+      console.error("Toggle admin error:", error);
+      res.status(500).json({ message: "Failed to update user" });
     }
   });
 

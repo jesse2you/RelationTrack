@@ -4,6 +4,7 @@ import {
   messages, 
   userSettings,
   userFeedback,
+  users,
   type InsertConversation, 
   type Conversation, 
   type InsertMessage, 
@@ -11,11 +12,17 @@ import {
   type InsertUserSettings,
   type UserSettings,
   type InsertUserFeedback,
-  type UserFeedback
+  type UserFeedback,
+  type User,
+  type UpsertUser
 } from "@shared/schema";
 import { eq, desc } from "drizzle-orm";
 
 export interface IStorage {
+  // Users (for authentication)
+  getUser(id: string): Promise<User | undefined>;
+  upsertUser(user: UpsertUser): Promise<User>;
+  
   // Conversations
   getConversations(): Promise<Conversation[]>;
   getConversation(id: string): Promise<Conversation | undefined>;
@@ -36,6 +43,27 @@ export interface IStorage {
 }
 
 export class DbStorage implements IStorage {
+  // Users (for authentication)
+  async getUser(id: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user;
+  }
+
+  async upsertUser(userData: UpsertUser): Promise<User> {
+    const [user] = await db
+      .insert(users)
+      .values(userData)
+      .onConflictDoUpdate({
+        target: users.id,
+        set: {
+          ...userData,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return user;
+  }
+
   // Conversations
   async getConversations(): Promise<Conversation[]> {
     return await db.select().from(conversations).orderBy(desc(conversations.updatedAt));
