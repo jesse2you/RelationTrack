@@ -1,5 +1,18 @@
 import { db } from "../db";
-import { conversations, messages, type InsertConversation, type Conversation, type InsertMessage, type Message } from "@shared/schema";
+import { 
+  conversations, 
+  messages, 
+  userSettings,
+  userFeedback,
+  type InsertConversation, 
+  type Conversation, 
+  type InsertMessage, 
+  type Message,
+  type InsertUserSettings,
+  type UserSettings,
+  type InsertUserFeedback,
+  type UserFeedback
+} from "@shared/schema";
 import { eq, desc } from "drizzle-orm";
 
 export interface IStorage {
@@ -12,6 +25,14 @@ export interface IStorage {
   // Messages
   getMessages(conversationId: string): Promise<Message[]>;
   createMessage(data: InsertMessage): Promise<Message>;
+  
+  // User Settings
+  getUserSettings(userId?: string): Promise<UserSettings | undefined>;
+  createOrUpdateUserSettings(data: InsertUserSettings): Promise<UserSettings>;
+  
+  // User Feedback
+  createFeedback(data: InsertUserFeedback): Promise<UserFeedback>;
+  getFeedbackByMessage(messageId: string): Promise<UserFeedback[]>;
 }
 
 export class DbStorage implements IStorage {
@@ -50,6 +71,40 @@ export class DbStorage implements IStorage {
       .where(eq(conversations.id, data.conversationId));
     
     return result[0];
+  }
+
+  // User Settings
+  async getUserSettings(userId: string = 'default_user'): Promise<UserSettings | undefined> {
+    const result = await db.select().from(userSettings).where(eq(userSettings.userId, userId));
+    return result[0];
+  }
+
+  async createOrUpdateUserSettings(data: InsertUserSettings): Promise<UserSettings> {
+    const userId = data.userId || 'default_user';
+    const existing = await this.getUserSettings(userId);
+    
+    if (existing) {
+      const result = await db.update(userSettings)
+        .set({ ...data, updatedAt: new Date() })
+        .where(eq(userSettings.userId, userId))
+        .returning();
+      return result[0];
+    } else {
+      const result = await db.insert(userSettings).values({ ...data, userId }).returning();
+      return result[0];
+    }
+  }
+
+  // User Feedback
+  async createFeedback(data: InsertUserFeedback): Promise<UserFeedback> {
+    const result = await db.insert(userFeedback).values(data).returning();
+    return result[0];
+  }
+
+  async getFeedbackByMessage(messageId: string): Promise<UserFeedback[]> {
+    return await db.select().from(userFeedback)
+      .where(eq(userFeedback.messageId, messageId))
+      .orderBy(desc(userFeedback.createdAt));
   }
 }
 

@@ -4,8 +4,10 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { PlusCircle, Send, Sparkles } from "lucide-react";
+import { PlusCircle, Send, Sparkles, Settings } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import SettingsDialog from "@/components/SettingsDialog";
+import MessageFeedback from "@/components/MessageFeedback";
 import type { Conversation, Message } from "@shared/schema";
 
 export default function Home() {
@@ -16,6 +18,7 @@ export default function Home() {
   const [streamingModel, setStreamingModel] = useState<string | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamError, setStreamError] = useState<string | null>(null);
+  const [showSettings, setShowSettings] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Fetch conversations
@@ -227,7 +230,17 @@ export default function Home() {
               Ask anything - I'll route your question to the best AI
             </p>
           </div>
-          <ThemeToggle />
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setShowSettings(true)}
+              data-testid="button-open-settings"
+            >
+              <Settings className="w-4 h-4" />
+            </Button>
+            <ThemeToggle />
+          </div>
         </div>
 
         {/* Messages */}
@@ -289,6 +302,9 @@ export default function Home() {
                     </div>
                   )}
                   <div className="whitespace-pre-wrap leading-relaxed">{msg.content}</div>
+                  {msg.role === "assistant" && (
+                    <MessageFeedback messageId={msg.id} currentModel={msg.model || undefined} />
+                  )}
                 </div>
               </div>
             ))}
@@ -365,6 +381,8 @@ export default function Home() {
           </div>
         </div>
       </div>
+      
+      <SettingsDialog open={showSettings} onOpenChange={setShowSettings} />
     </div>
   );
 }

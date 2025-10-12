@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer } from "http";
 import { storage } from "./storage";
-import { insertConversationSchema, insertMessageSchema } from "@shared/schema";
+import { insertConversationSchema, insertMessageSchema, insertUserSettingsSchema, insertUserFeedbackSchema } from "@shared/schema";
 import OpenAI from "openai";
 
 const openai = new OpenAI({
@@ -58,6 +58,30 @@ export function registerRoutes(app: Express) {
   app.delete("/api/conversations/:id", async (req, res) => {
     await storage.deleteConversation(req.params.id);
     res.json({ success: true });
+  });
+
+  // User Settings Routes
+  app.get("/api/settings", async (_req, res) => {
+    const settings = await storage.getUserSettings();
+    res.json(settings || {});
+  });
+
+  app.post("/api/settings", async (req, res) => {
+    const data = insertUserSettingsSchema.parse(req.body);
+    const settings = await storage.createOrUpdateUserSettings(data);
+    res.json(settings);
+  });
+
+  // User Feedback Routes
+  app.post("/api/feedback", async (req, res) => {
+    const data = insertUserFeedbackSchema.parse(req.body);
+    const feedback = await storage.createFeedback(data);
+    res.json(feedback);
+  });
+
+  app.get("/api/feedback/:messageId", async (req, res) => {
+    const feedback = await storage.getFeedbackByMessage(req.params.messageId);
+    res.json(feedback);
   });
 
   // Send message and get AI response (with streaming)
