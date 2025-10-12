@@ -171,7 +171,14 @@ AI Learning Hub/
 
 ## Recent Updates
 
-**October 12, 2025 (Latest):** Multi-Agent System & Mobile Support
+**October 12, 2025 (Latest):** Cross-Conversation Memory & Agent Collaboration
+- 🧠 **User Memory System** - Agents remember context across ALL conversations
+- 🤝 **Agent Communication Protocol** - Agents can consult each other mid-conversation
+- 📊 **Agent Interaction Logging** - Track collaboration and teamwork
+- 💾 **Persistent Context** - Goals, preferences, facts stored long-term
+- 🔄 **Agent Union** - Agents work in synchronous support, true harmony
+
+**October 12, 2025:** Multi-Agent System & Mobile Support
 - 🤖 **Multi-agent orchestration** with 5 specialized AI agents
 - 🎯 **Smart keyword-based routing** for cost-efficient agent selection
 - 💰 **Cost optimization** strategies targeting $10-20/month
@@ -237,6 +244,41 @@ userFeedback {
   messageId: string (links to message)
   rating: string ("positive" | "negative")
   suggestion: text
+  createdAt: timestamp
+}
+
+userMemory {
+  id: string
+  userId: string
+  memoryType: string ("goal" | "preference" | "fact" | "context")
+  category: string ("learning" | "work" | "personal" | "skills")
+  content: text (the actual memory)
+  importance: string ("low" | "medium" | "high")
+  sourceAgent: string (which agent learned this)
+  sourceConversationId: string
+  createdAt: timestamp
+}
+
+userTiers {
+  id: string
+  userId: string
+  tier: string ("free" | "pro" | "premium")
+  features: array (enabled features)
+  customizationLevel: string ("basic" | "advanced" | "full")
+  agentAccess: array (which agents user can access)
+  messagesPerMonth: string (usage limit)
+  createdAt: timestamp
+}
+
+agentInteractions {
+  id: string
+  userId: string
+  conversationId: string
+  primaryAgent: string (main agent handling request)
+  collaboratingAgents: array (other agents involved)
+  interactionType: string ("solo" | "handoff" | "collaborative")
+  outcome: text (what was accomplished)
+  memoryCreated: boolean
   createdAt: timestamp
 }
 ```
