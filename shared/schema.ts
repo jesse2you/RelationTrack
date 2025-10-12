@@ -17,6 +17,8 @@ export const messages = pgTable("messages", {
   content: text("content").notNull(),
   aiProvider: text("ai_provider"), // which AI was used: 'openai', 'claude', 'gemini'
   model: text("model"), // specific model used
+  agentRole: text("agent_role"), // specialized agent: 'coordinator', 'learning_coach', 'teaching_assistant', 'research_agent'
+  taskType: text("task_type"), // type of task: 'learning', 'teaching', 'research', 'general'
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 

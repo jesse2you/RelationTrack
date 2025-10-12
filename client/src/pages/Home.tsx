@@ -4,7 +4,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { PlusCircle, Send, Sparkles, Settings, Shield } from "lucide-react";
+import { PlusCircle, Send, Sparkles, Settings, Shield, Brain, BookOpen, GraduationCap, FlaskConical, ListTodo } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useAuth } from "@/hooks/useAuth";
 import SettingsDialog from "@/components/SettingsDialog";
@@ -18,6 +18,8 @@ export default function Home() {
   const [streamingMessage, setStreamingMessage] = useState("");
   const [streamingProvider, setStreamingProvider] = useState<string | null>(null);
   const [streamingModel, setStreamingModel] = useState<string | null>(null);
+  const [streamingAgentName, setStreamingAgentName] = useState<string | null>(null);
+  const [streamingAgentRole, setStreamingAgentRole] = useState<string | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamError, setStreamError] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
@@ -60,6 +62,8 @@ export default function Home() {
       setStreamingMessage("");
       setStreamingProvider(null);
       setStreamingModel(null);
+      setStreamingAgentName(null);
+      setStreamingAgentRole(null);
       setStreamError(null);
 
       const response = await fetch(`/api/conversations/${conversationId}/messages`, {
@@ -109,6 +113,8 @@ export default function Home() {
                     setStreamingMessage("");
                     setStreamingProvider(null);
                     setStreamingModel(null);
+                    setStreamingAgentName(null);
+                    setStreamingAgentRole(null);
                   }, 100);
                 });
                 return;
@@ -126,6 +132,10 @@ export default function Home() {
                 if (parsed.model) {
                   setStreamingModel(parsed.model);
                   setStreamingProvider(parsed.provider);
+                }
+                if (parsed.agentName) {
+                  setStreamingAgentName(parsed.agentName);
+                  setStreamingAgentRole(parsed.agentRole);
                 }
               } catch (e) {
                 // Ignore parse errors
@@ -165,21 +175,27 @@ export default function Home() {
     }
   }, [messages, streamingMessage]);
 
-  const getProviderColor = (provider: string | null) => {
-    switch (provider) {
-      case 'gpt-4o': return 'text-purple-500';
-      case 'gpt-4o-mini': return 'text-cyan-500';
-      case 'o3-mini': return 'text-emerald-500';
-      default: return 'text-blue-500';
+  const getAgentColor = (agentRole: string | null) => {
+    switch (agentRole) {
+      case 'coordinator': return 'text-purple-500';
+      case 'learning_coach': return 'text-blue-500';
+      case 'teaching_assistant': return 'text-emerald-500';
+      case 'research_agent': return 'text-amber-500';
+      case 'task_manager': return 'text-cyan-500';
+      default: return 'text-primary';
     }
   };
 
-  const getProviderLabel = (model: string | null) => {
-    if (!model) return 'AI';
-    if (model.includes('gpt-4o-mini')) return 'GPT-4o Mini';
-    if (model.includes('gpt-4o')) return 'GPT-4o';
-    if (model.includes('o3-mini')) return 'O3-mini';
-    return 'AI';
+  const getAgentIcon = (agentRole: string | null) => {
+    const iconClass = "w-4 h-4";
+    switch (agentRole) {
+      case 'coordinator': return <Brain className={iconClass} />;
+      case 'learning_coach': return <BookOpen className={iconClass} />;
+      case 'teaching_assistant': return <GraduationCap className={iconClass} />;
+      case 'research_agent': return <FlaskConical className={iconClass} />;
+      case 'task_manager': return <ListTodo className={iconClass} />;
+      default: return <Sparkles className={iconClass} />;
+    }
   };
 
   return (
@@ -228,10 +244,10 @@ export default function Home() {
           <div>
             <h1 className="text-2xl font-semibold flex items-center gap-2">
               <Sparkles className="w-6 h-6 text-primary" />
-              AI Agent Router
+              AI Learning Hub
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Ask anything - I'll route your question to the best AI
+              Your personal team of AI agents - Learning, Teaching, Research & More
             </p>
           </div>
           <div className="flex gap-2">
@@ -266,31 +282,54 @@ export default function Home() {
                 <div className="inline-flex items-center justify-center w-24 h-24 rounded-full bg-gradient-to-br from-purple-500 via-cyan-500 to-emerald-500 mb-6">
                   <Sparkles className="w-12 h-12 text-white" />
                 </div>
-                <h2 className="text-3xl font-bold mb-2">Ask me anything</h2>
+                <h2 className="text-3xl font-bold mb-2">Welcome to Your AI Team</h2>
                 <p className="text-muted-foreground mb-8">
-                  I'll automatically choose the best AI for your question
+                  Specialized agents ready to help you learn, teach, research, and organize
                 </p>
                 <div className="grid gap-4 max-w-2xl mx-auto">
                   <button
-                    data-testid="button-example-code"
-                    onClick={() => setInput("Write a Python function to calculate fibonacci numbers")}
+                    data-testid="button-example-learn"
+                    onClick={() => setInput("Help me learn Python programming")}
                     className="p-4 rounded-lg border bg-card hover-elevate text-left"
                   >
-                    <div className="text-sm font-medium">Write a Python function to calculate fibonacci numbers</div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <BookOpen className="w-4 h-4 text-blue-500" />
+                      <div className="text-sm font-semibold text-blue-500">Learning Coach</div>
+                    </div>
+                    <div className="text-sm text-muted-foreground">Help me learn Python programming</div>
                   </button>
                   <button
-                    data-testid="button-example-creative"
-                    onClick={() => setInput("Write a short story about a time traveler")}
+                    data-testid="button-example-teach"
+                    onClick={() => setInput("Create a lesson plan for teaching fractions to 5th graders")}
                     className="p-4 rounded-lg border bg-card hover-elevate text-left"
                   >
-                    <div className="text-sm font-medium">Write a short story about a time traveler</div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <GraduationCap className="w-4 h-4 text-emerald-500" />
+                      <div className="text-sm font-semibold text-emerald-500">Teaching Assistant</div>
+                    </div>
+                    <div className="text-sm text-muted-foreground">Create a lesson plan for teaching fractions</div>
                   </button>
                   <button
-                    data-testid="button-example-analysis"
-                    onClick={() => setInput("Explain the difference between TCP and UDP")}
+                    data-testid="button-example-research"
+                    onClick={() => setInput("Analyze the pros and cons of renewable energy")}
                     className="p-4 rounded-lg border bg-card hover-elevate text-left"
                   >
-                    <div className="text-sm font-medium">Explain the difference between TCP and UDP</div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <FlaskConical className="w-4 h-4 text-amber-500" />
+                      <div className="text-sm font-semibold text-amber-500">Research Agent</div>
+                    </div>
+                    <div className="text-sm text-muted-foreground">Analyze the pros and cons of renewable energy</div>
+                  </button>
+                  <button
+                    data-testid="button-example-organize"
+                    onClick={() => setInput("Help me organize a study schedule for exams")}
+                    className="p-4 rounded-lg border bg-card hover-elevate text-left"
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <ListTodo className="w-4 h-4 text-cyan-500" />
+                      <div className="text-sm font-semibold text-cyan-500">Task Manager</div>
+                    </div>
+                    <div className="text-sm text-muted-foreground">Help me organize a study schedule for exams</div>
                   </button>
                 </div>
               </div>
@@ -309,10 +348,18 @@ export default function Home() {
                   }`}
                   data-testid={`message-${msg.id}`}
                 >
-                  {msg.role === "assistant" && msg.model && (
+                  {msg.role === "assistant" && (
                     <div className="flex items-center gap-2 mb-3">
-                      <div className={`text-sm font-semibold ${getProviderColor(msg.model)}`}>
-                        {getProviderLabel(msg.model)}
+                      <div className={getAgentColor((msg as any).agentRole)}>
+                        {getAgentIcon((msg as any).agentRole)}
+                      </div>
+                      <div className={`text-sm font-semibold ${getAgentColor((msg as any).agentRole)}`}>
+                        {(msg as any).agentRole === 'coordinator' && 'Head Coordinator'}
+                        {(msg as any).agentRole === 'learning_coach' && 'Learning Coach'}
+                        {(msg as any).agentRole === 'teaching_assistant' && 'Teaching Assistant'}
+                        {(msg as any).agentRole === 'research_agent' && 'Research Agent'}
+                        {(msg as any).agentRole === 'task_manager' && 'Task Manager'}
+                        {!(msg as any).agentRole && 'AI Assistant'}
                       </div>
                     </div>
                   )}
@@ -327,10 +374,13 @@ export default function Home() {
             {streamingMessage && (
               <div className="flex justify-start">
                 <div className="max-w-3xl bg-card border-l-4 border-blue-500 rounded-2xl p-6">
-                  {streamingModel && (
+                  {streamingAgentName && (
                     <div className="flex items-center gap-2 mb-3">
-                      <div className={`text-sm font-semibold ${getProviderColor(streamingModel)}`}>
-                        {getProviderLabel(streamingModel)}
+                      <div className={getAgentColor(streamingAgentRole)}>
+                        {getAgentIcon(streamingAgentRole)}
+                      </div>
+                      <div className={`text-sm font-semibold ${getAgentColor(streamingAgentRole)}`}>
+                        {streamingAgentName}
                       </div>
                       <div className="flex gap-1">
                         <div className="w-1.5 h-1.5 rounded-full bg-current animate-bounce" style={{ animationDelay: '0ms' }} />

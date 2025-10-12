@@ -5,34 +5,12 @@ import { db } from "../db";
 import { insertConversationSchema, insertMessageSchema, insertUserSettingsSchema, insertUserFeedbackSchema, userFeedback, users } from "@shared/schema";
 import { setupAuth, isAuthenticated, isAdmin } from "./replitAuth";
 import OpenAI from "openai";
+import { analyzeAndRoute, generateAgentResponse, AGENTS } from "./agentCoordinator";
 
 const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
   baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
 });
-
-// AI Router: Determines best AI for each question type
-function selectAIProvider(question: string): { provider: string; model: string } {
-  const lowerQ = question.toLowerCase();
-  
-  // Code-related questions -> GPT-4
-  if (lowerQ.includes('code') || lowerQ.includes('programming') || lowerQ.includes('debug') || lowerQ.includes('function')) {
-    return { provider: 'openai', model: 'gpt-4o' };
-  }
-  
-  // Creative/writing -> GPT-4o-mini (faster, cheaper)
-  if (lowerQ.includes('write') || lowerQ.includes('create') || lowerQ.includes('story') || lowerQ.includes('poem')) {
-    return { provider: 'openai', model: 'gpt-4o-mini' };
-  }
-  
-  // Analysis/reasoning -> O3-mini (optimized for reasoning)
-  if (lowerQ.includes('analyze') || lowerQ.includes('compare') || lowerQ.includes('explain') || lowerQ.includes('why')) {
-    return { provider: 'openai', model: 'o3-mini' };
-  }
-  
-  // Default to GPT-4o-mini for general questions
-  return { provider: 'openai', model: 'gpt-4o-mini' };
-}
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Setup authentication
@@ -101,7 +79,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(feedback);
   });
 
-  // Send message and get AI response (with streaming)
+  // Send message and get AI response (with streaming - Multi-Agent System)
   app.post("/api/conversations/:id/messages", async (req, res) => {
     const { content } = req.body;
     const conversationId = req.params.id;
@@ -115,8 +93,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       model: null,
     });
 
-    // Select best AI provider based on question
-    const { provider, model } = selectAIProvider(content);
+    // Intelligent agent routing
+    const { agentRole, taskType, reasoning } = analyzeAndRoute(content);
+    const selectedAgent = AGENTS[agentRole];
 
     // Get conversation history for context
     const messages = await storage.getMessages(conversationId);
@@ -131,12 +110,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.setHeader('Connection', 'keep-alive');
 
     try {
-      // Stream response from selected AI
-      const stream = await openai.chat.completions.create({
-        model,
-        messages: chatMessages,
-        stream: true,
-      });
+      // Stream response from selected agent
+      const stream = await generateAgentResponse(agentRole, chatMessages, true);
 
       let fullResponse = '';
 
@@ -144,17 +119,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const content = chunk.choices[0]?.delta?.content || '';
         if (content) {
           fullResponse += content;
-          res.write(`data: ${JSON.stringify({ content, provider, model })}\n\n`);
+          res.write(`data: ${JSON.stringify({ 
+            content, 
+            provider: 'openai',
+            model: selectedAgent.model,
+            agentRole: selectedAgent.role,
+            agentName: selectedAgent.name,
+            taskType
+          })}\n\n`);
         }
       }
 
-      // Save assistant message
+      // Save assistant message with agent metadata
       await storage.createMessage({
         conversationId,
         role: "assistant",
         content: fullResponse,
-        aiProvider: provider,
-        model,
+        aiProvider: 'openai',
+        model: selectedAgent.model,
+        agentRole: selectedAgent.role,
+        taskType,
       });
 
       res.write(`data: [DONE]\n\n`);
