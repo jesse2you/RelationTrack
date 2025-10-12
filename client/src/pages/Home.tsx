@@ -4,13 +4,15 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { PlusCircle, Send, Sparkles, Settings } from "lucide-react";
+import { PlusCircle, Send, Sparkles, Settings, Shield } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { useAuth } from "@/hooks/useAuth";
 import SettingsDialog from "@/components/SettingsDialog";
 import MessageFeedback from "@/components/MessageFeedback";
 import type { Conversation, Message } from "@shared/schema";
 
 export default function Home() {
+  const { user } = useAuth();
   const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [streamingMessage, setStreamingMessage] = useState("");
@@ -20,6 +22,8 @@ export default function Home() {
   const [streamError, setStreamError] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  
+  const isAdmin = (user as any)?.isAdmin;
 
   // Fetch conversations
   const { data: conversations = [] } = useQuery<Conversation[]>({
@@ -231,6 +235,17 @@ export default function Home() {
             </p>
           </div>
           <div className="flex gap-2">
+            {isAdmin && (
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => window.location.href = "/admin"}
+                data-testid="button-admin-panel"
+                title="Admin Panel"
+              >
+                <Shield className="w-4 h-4" />
+              </Button>
+            )}
             <Button
               variant="outline"
               size="icon"
