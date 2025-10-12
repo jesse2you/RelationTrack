@@ -203,6 +203,21 @@ export const agentInteractions = pgTable("agent_interactions", {
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
+// Agent Tasks - Assigned tasks for agent orchestration
+export const agentTasks = pgTable("agent_tasks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().default('default_user'),
+  agentId: text("agent_id").notNull(), // Which agent is assigned
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  priority: text("priority").default('medium'), // 'low', 'medium', 'high'
+  status: text("status").default('pending'), // 'pending', 'in_progress', 'completed', 'failed'
+  result: text("result"), // Agent's execution result
+  conversationId: varchar("conversation_id").references(() => conversations.id), // If task created a conversation
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  completedAt: timestamp("completed_at"),
+});
+
 export const insertUserMemorySchema = createInsertSchema(userMemory).omit({
   id: true,
   createdAt: true,
@@ -220,9 +235,17 @@ export const insertAgentInteractionSchema = createInsertSchema(agentInteractions
   createdAt: true,
 });
 
+export const insertAgentTaskSchema = createInsertSchema(agentTasks).omit({
+  id: true,
+  createdAt: true,
+  completedAt: true,
+});
+
 export type InsertUserMemory = z.infer<typeof insertUserMemorySchema>;
 export type UserMemory = typeof userMemory.$inferSelect;
 export type InsertUserTier = z.infer<typeof insertUserTierSchema>;
 export type UserTier = typeof userTiers.$inferSelect;
 export type InsertAgentInteraction = z.infer<typeof insertAgentInteractionSchema>;
 export type AgentInteraction = typeof agentInteractions.$inferSelect;
+export type InsertAgentTask = z.infer<typeof insertAgentTaskSchema>;
+export type AgentTask = typeof agentTasks.$inferSelect;

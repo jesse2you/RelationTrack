@@ -304,6 +304,15 @@ export default function Home() {
             <Button
               variant="outline"
               size="icon"
+              onClick={() => window.location.href = "/agents"}
+              data-testid="button-agent-dashboard"
+              title="Agent Dashboard"
+            >
+              <Sparkles className="w-4 h-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
               onClick={() => window.location.href = "/organization"}
               data-testid="button-organization"
               title="MeetingMate Organization"
