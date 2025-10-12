@@ -2,7 +2,17 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { db } from "../db";
-import { insertConversationSchema, insertMessageSchema, insertUserSettingsSchema, insertUserFeedbackSchema, userFeedback, users } from "@shared/schema";
+import { 
+  insertConversationSchema, 
+  insertMessageSchema, 
+  insertUserSettingsSchema, 
+  insertUserFeedbackSchema, 
+  insertTaskSchema,
+  insertMeetingSchema,
+  insertScheduleSchema,
+  userFeedback, 
+  users 
+} from "@shared/schema";
 import { setupAuth, isAuthenticated, isAdmin } from "./replitAuth";
 import OpenAI from "openai";
 import { analyzeAndRoute, generateAgentResponse, AGENTS } from "./agentCoordinator";
@@ -77,6 +87,88 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/feedback/:messageId", async (req, res) => {
     const feedback = await storage.getFeedbackByMessage(req.params.messageId);
     res.json(feedback);
+  });
+
+  // MeetingMate Organization Routes
+  // Tasks
+  app.get("/api/tasks", async (_req, res) => {
+    const tasks = await storage.getTasks();
+    res.json(tasks);
+  });
+
+  app.get("/api/tasks/:id", async (req, res) => {
+    const task = await storage.getTask(req.params.id);
+    res.json(task);
+  });
+
+  app.post("/api/tasks", async (req, res) => {
+    const data = insertTaskSchema.parse(req.body);
+    const task = await storage.createTask(data);
+    res.json(task);
+  });
+
+  app.patch("/api/tasks/:id", async (req, res) => {
+    const task = await storage.updateTask(req.params.id, req.body);
+    res.json(task);
+  });
+
+  app.delete("/api/tasks/:id", async (req, res) => {
+    await storage.deleteTask(req.params.id);
+    res.json({ success: true });
+  });
+
+  // Meetings
+  app.get("/api/meetings", async (_req, res) => {
+    const meetings = await storage.getMeetings();
+    res.json(meetings);
+  });
+
+  app.get("/api/meetings/:id", async (req, res) => {
+    const meeting = await storage.getMeeting(req.params.id);
+    res.json(meeting);
+  });
+
+  app.post("/api/meetings", async (req, res) => {
+    const data = insertMeetingSchema.parse(req.body);
+    const meeting = await storage.createMeeting(data);
+    res.json(meeting);
+  });
+
+  app.patch("/api/meetings/:id", async (req, res) => {
+    const meeting = await storage.updateMeeting(req.params.id, req.body);
+    res.json(meeting);
+  });
+
+  app.delete("/api/meetings/:id", async (req, res) => {
+    await storage.deleteMeeting(req.params.id);
+    res.json({ success: true });
+  });
+
+  // Schedules
+  app.get("/api/schedules", async (_req, res) => {
+    const schedules = await storage.getSchedules();
+    res.json(schedules);
+  });
+
+  app.get("/api/schedules/:id", async (req, res) => {
+    const schedule = await storage.getSchedule(req.params.id);
+    res.json(schedule);
+  });
+
+  app.post("/api/schedules", async (req, res) => {
+    const data = insertScheduleSchema.parse(req.body);
+    const schedule = await storage.createSchedule(data);
+    res.json(schedule);
+  });
+
+  app.patch("/api/schedules/:id", async (req, res) => {
+    const schedule = await storage.updateSchedule(req.params.id, req.body);
+    res.json(schedule);
+  });
+
+  app.delete("/api/schedules/:id", async (req, res) => {
+    await storage.deleteSchedule(req.params.id);
+    res.json({ success: true });
   });
 
   // Send message and get AI response (with streaming - Multi-Agent System)

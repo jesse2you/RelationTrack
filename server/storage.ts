@@ -5,6 +5,9 @@ import {
   userSettings,
   userFeedback,
   users,
+  tasks,
+  meetings,
+  schedules,
   type InsertConversation, 
   type Conversation, 
   type InsertMessage, 
@@ -14,7 +17,13 @@ import {
   type InsertUserFeedback,
   type UserFeedback,
   type User,
-  type UpsertUser
+  type UpsertUser,
+  type InsertTask,
+  type Task,
+  type InsertMeeting,
+  type Meeting,
+  type InsertSchedule,
+  type Schedule
 } from "@shared/schema";
 import { eq, desc } from "drizzle-orm";
 
@@ -40,6 +49,28 @@ export interface IStorage {
   // User Feedback
   createFeedback(data: InsertUserFeedback): Promise<UserFeedback>;
   getFeedbackByMessage(messageId: string): Promise<UserFeedback[]>;
+  
+  // MeetingMate Organization Features
+  // Tasks
+  getTasks(userId?: string): Promise<Task[]>;
+  getTask(id: string): Promise<Task | undefined>;
+  createTask(data: InsertTask): Promise<Task>;
+  updateTask(id: string, data: Partial<InsertTask>): Promise<Task>;
+  deleteTask(id: string): Promise<void>;
+  
+  // Meetings
+  getMeetings(userId?: string): Promise<Meeting[]>;
+  getMeeting(id: string): Promise<Meeting | undefined>;
+  createMeeting(data: InsertMeeting): Promise<Meeting>;
+  updateMeeting(id: string, data: Partial<InsertMeeting>): Promise<Meeting>;
+  deleteMeeting(id: string): Promise<void>;
+  
+  // Schedules
+  getSchedules(userId?: string): Promise<Schedule[]>;
+  getSchedule(id: string): Promise<Schedule | undefined>;
+  createSchedule(data: InsertSchedule): Promise<Schedule>;
+  updateSchedule(id: string, data: Partial<InsertSchedule>): Promise<Schedule>;
+  deleteSchedule(id: string): Promise<void>;
 }
 
 export class DbStorage implements IStorage {
@@ -133,6 +164,94 @@ export class DbStorage implements IStorage {
     return await db.select().from(userFeedback)
       .where(eq(userFeedback.messageId, messageId))
       .orderBy(desc(userFeedback.createdAt));
+  }
+
+  // MeetingMate Organization Features
+  // Tasks
+  async getTasks(userId: string = 'default_user'): Promise<Task[]> {
+    return await db.select().from(tasks)
+      .where(eq(tasks.userId, userId))
+      .orderBy(desc(tasks.createdAt));
+  }
+
+  async getTask(id: string): Promise<Task | undefined> {
+    const result = await db.select().from(tasks).where(eq(tasks.id, id));
+    return result[0];
+  }
+
+  async createTask(data: InsertTask): Promise<Task> {
+    const result = await db.insert(tasks).values(data).returning();
+    return result[0];
+  }
+
+  async updateTask(id: string, data: Partial<InsertTask>): Promise<Task> {
+    const result = await db.update(tasks)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(tasks.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteTask(id: string): Promise<void> {
+    await db.delete(tasks).where(eq(tasks.id, id));
+  }
+
+  // Meetings
+  async getMeetings(userId: string = 'default_user'): Promise<Meeting[]> {
+    return await db.select().from(meetings)
+      .where(eq(meetings.userId, userId))
+      .orderBy(desc(meetings.meetingDate));
+  }
+
+  async getMeeting(id: string): Promise<Meeting | undefined> {
+    const result = await db.select().from(meetings).where(eq(meetings.id, id));
+    return result[0];
+  }
+
+  async createMeeting(data: InsertMeeting): Promise<Meeting> {
+    const result = await db.insert(meetings).values(data).returning();
+    return result[0];
+  }
+
+  async updateMeeting(id: string, data: Partial<InsertMeeting>): Promise<Meeting> {
+    const result = await db.update(meetings)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(meetings.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteMeeting(id: string): Promise<void> {
+    await db.delete(meetings).where(eq(meetings.id, id));
+  }
+
+  // Schedules
+  async getSchedules(userId: string = 'default_user'): Promise<Schedule[]> {
+    return await db.select().from(schedules)
+      .where(eq(schedules.userId, userId))
+      .orderBy(desc(schedules.scheduledTime));
+  }
+
+  async getSchedule(id: string): Promise<Schedule | undefined> {
+    const result = await db.select().from(schedules).where(eq(schedules.id, id));
+    return result[0];
+  }
+
+  async createSchedule(data: InsertSchedule): Promise<Schedule> {
+    const result = await db.insert(schedules).values(data).returning();
+    return result[0];
+  }
+
+  async updateSchedule(id: string, data: Partial<InsertSchedule>): Promise<Schedule> {
+    const result = await db.update(schedules)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(schedules.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteSchedule(id: string): Promise<void> {
+    await db.delete(schedules).where(eq(schedules.id, id));
   }
 }
 

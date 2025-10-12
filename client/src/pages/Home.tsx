@@ -4,7 +4,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { PlusCircle, Send, Sparkles, Settings, Shield, Brain, BookOpen, GraduationCap, FlaskConical, ListTodo, Menu, X } from "lucide-react";
+import { PlusCircle, Send, Sparkles, Settings, Shield, Brain, BookOpen, GraduationCap, FlaskConical, ListTodo, Menu, X, CalendarDays } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useAuth } from "@/hooks/useAuth";
 import SettingsDialog from "@/components/SettingsDialog";
@@ -301,6 +301,15 @@ export default function Home() {
           </div>
           
           <div className="flex gap-2 flex-shrink-0">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => window.location.href = "/organization"}
+              data-testid="button-organization"
+              title="MeetingMate Organization"
+            >
+              <CalendarDays className="w-4 h-4" />
+            </Button>
             {isAdmin && (
               <Button
                 variant="outline"
