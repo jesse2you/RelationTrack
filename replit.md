@@ -1,7 +1,7 @@
-# AI Learning Hub - Multi-Agent Learning Platform
+# Qwenticinicial - Multi-Agent AI Orchestration Platform
 
 ## What This Is
-**ONE intelligent multi-agent platform** that helps you learn, teach, research, and organize with specialized AI agents.
+**ONE unified multi-agent platform** merging PhoneSyncGo, MeetingMate, A1AgentQuery, and RelationTrack into **Qwenticinicial** - your AI army to help with learning, organization, and on-the-go productivity.
 
 ### How It Works (Multi-Agent Coordination)
 ```
@@ -47,10 +47,13 @@ AI Learning Hub/
 
 ## Features
 
+✅ **Purple Gradient Interface** - Signature Qwenticinicial purple/pink/cyan gradient with frosted glass effects  
+✅ **Voice Control** - Speech-to-text input and text-to-speech responses using Web Speech API  
 ✅ **Multi-Agent Coordination** - 5 specialized AI agents working as a team  
 ✅ **Smart Agent Routing** - Keyword-based scoring picks best agent for each task  
 ✅ **Cost-Optimized** - Designed to stay within $10-20/month target  
-✅ **Mobile-Responsive** - Full mobile support with collapsible sidebar  
+✅ **Mobile-Responsive** - Full mobile support with collapsible sidebar (PhoneSyncGo)  
+✅ **MeetingMate Organization** - Tasks, meetings, and schedules management  
 ✅ **Real-time Streaming** - See AI responses as they're generated  
 ✅ **Conversation History** - All chats saved in database  
 ✅ **Agent Transparency** - See which agent responded with model badges  
