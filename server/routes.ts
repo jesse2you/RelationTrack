@@ -15,7 +15,7 @@ import {
 } from "@shared/schema";
 import { setupAuth, isAuthenticated, isAdmin } from "./replitAuth";
 import OpenAI from "openai";
-import { analyzeAndRoute, generateAgentResponse, AGENTS, executeFunction } from "./agentCoordinator";
+import { analyzeAndRoute, generateAgentResponse, AGENTS, executeFunction, extractAndSaveMemories } from "./agentCoordinator";
 
 const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
@@ -201,10 +201,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
 
+    // Get user ID for memory and agent context
+    const userId = (req.user as any)?.id || 'default_user';
+    
     try {
       // Task Manager always uses non-streaming to support function calling
       if (agentRole === 'task_manager') {
-        const userId = (req.user as any)?.id || 'default_user';
         const response = await generateAgentResponse(agentRole, chatMessages, false, userId);
         const choice = response.choices[0];
         
@@ -270,11 +272,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           taskType,
         });
         
+        // Extract and save memories from this conversation turn
+        extractAndSaveMemories(userId, conversationId, content, fullResponse, agentRole).catch(err => {
+          console.error('Background memory extraction failed:', err);
+        });
+        
         res.write(`data: [DONE]\n\n`);
         res.end();
       } else {
         // Normal streaming for other agents
-        const userId = (req.user as any)?.id || 'default_user';
         const stream = await generateAgentResponse(agentRole, chatMessages, true, userId);
 
         let fullResponse = '';
@@ -303,6 +309,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           model: selectedAgent.model,
           agentRole: selectedAgent.role,
           taskType,
+        });
+
+        // Extract and save memories from this conversation turn (background task)
+        extractAndSaveMemories(userId, conversationId, content, fullResponse, agentRole).catch(err => {
+          console.error('Background memory extraction failed:', err);
         });
 
         res.write(`data: [DONE]\n\n`);

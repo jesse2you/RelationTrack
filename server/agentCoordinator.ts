@@ -408,6 +408,90 @@ function formatUserMemory(memories: any[]): string {
   return formatted;
 }
 
+// Extract and save important memories from conversation
+export async function extractAndSaveMemories(
+  userId: string,
+  conversationId: string,
+  userMessage: string,
+  agentResponse: string,
+  agentRole: string
+): Promise<void> {
+  try {
+    // Use GPT-4o-mini to extract important information
+    const extractionPrompt = `You are a memory extraction AI. Analyze this conversation turn and extract any important information about the user that should be remembered for future conversations.
+
+Extract:
+1. **Goals** - What the user wants to achieve, learn, or accomplish
+2. **Preferences** - How the user likes things done, their style, interests
+3. **Facts** - Important information about the user (skills, background, context)
+4. **Context** - Situational information that affects future interactions
+
+User Message: "${userMessage}"
+Agent Response: "${agentResponse}"
+
+Return a JSON array of memories. Each memory should have:
+- memoryType: "goal" | "preference" | "fact" | "context"
+- category: "learning" | "work" | "personal" | "skills"
+- content: Brief, specific description (1-2 sentences max)
+- importance: "low" | "medium" | "high"
+
+Only extract truly important information. Skip generic responses. Return empty array [] if nothing important to remember.
+
+Example:
+[
+  {
+    "memoryType": "goal",
+    "category": "learning",
+    "content": "User wants to learn Python for data science",
+    "importance": "high"
+  }
+]
+
+Response (JSON array only):`;
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "user", content: extractionPrompt }
+      ],
+      temperature: 0.3, // Lower temperature for more consistent extraction
+      response_format: { type: "json_object" }
+    });
+
+    const response = completion.choices[0]?.message?.content;
+    if (!response) return;
+
+    let memories;
+    try {
+      const parsed = JSON.parse(response);
+      // Handle both { memories: [...] } and direct array formats
+      memories = Array.isArray(parsed) ? parsed : (parsed.memories || []);
+    } catch (parseError) {
+      console.error('Failed to parse memory extraction:', parseError);
+      return;
+    }
+
+    // Save each extracted memory
+    for (const memory of memories) {
+      if (memory.content && memory.memoryType && memory.category) {
+        await storage.createUserMemory({
+          userId,
+          memoryType: memory.memoryType,
+          category: memory.category,
+          content: memory.content,
+          importance: memory.importance || 'medium',
+          sourceAgent: agentRole,
+          sourceConversationId: conversationId
+        });
+        
+        console.log(`💾 Saved memory: [${memory.memoryType}/${memory.category}] ${memory.content}`);
+      }
+    }
+  } catch (error) {
+    console.error('Memory extraction failed:', error);
+  }
+}
+
 // Generate response using selected agent
 export async function generateAgentResponse(
   agentRole: string,
