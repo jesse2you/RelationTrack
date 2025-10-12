@@ -4,7 +4,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { PlusCircle, Send, Sparkles, Settings, Shield, Brain, BookOpen, GraduationCap, FlaskConical, ListTodo } from "lucide-react";
+import { PlusCircle, Send, Sparkles, Settings, Shield, Brain, BookOpen, GraduationCap, FlaskConical, ListTodo, Menu, X } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useAuth } from "@/hooks/useAuth";
 import SettingsDialog from "@/components/SettingsDialog";
@@ -23,6 +23,7 @@ export default function Home() {
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamError, setStreamError] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   
   const isAdmin = (user as any)?.isAdmin;
@@ -200,13 +201,38 @@ export default function Home() {
 
   return (
     <div className="flex h-screen bg-background">
+      {/* Mobile Sidebar Overlay */}
+      {showMobileSidebar && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          onClick={() => setShowMobileSidebar(false)}
+        />
+      )}
+      
       {/* Sidebar */}
-      <div className="w-64 border-r bg-card p-4 flex flex-col">
+      <div className={`
+        fixed lg:static inset-y-0 left-0 z-50
+        w-64 border-r bg-card p-4 flex flex-col
+        transform transition-transform duration-200 ease-in-out
+        ${showMobileSidebar ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+      `}>
+        {/* Mobile Close Button */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="lg:hidden absolute top-4 right-4"
+          onClick={() => setShowMobileSidebar(false)}
+          data-testid="button-close-sidebar"
+        >
+          <X className="w-4 h-4" />
+        </Button>
+
         <Button
           data-testid="button-new-chat"
           onClick={() => {
             setSelectedConversation(null);
             setInput("");
+            setShowMobileSidebar(false);
           }}
           className="mb-4 w-full"
         >
@@ -220,7 +246,10 @@ export default function Home() {
               <button
                 key={conv.id}
                 data-testid={`button-conversation-${conv.id}`}
-                onClick={() => setSelectedConversation(conv.id)}
+                onClick={() => {
+                  setSelectedConversation(conv.id);
+                  setShowMobileSidebar(false);
+                }}
                 className={`w-full text-left p-3 rounded-lg transition-colors hover-elevate ${
                   selectedConversation === conv.id
                     ? "bg-accent text-accent-foreground"
@@ -240,17 +269,31 @@ export default function Home() {
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col">
         {/* Header */}
-        <div className="border-b p-4 flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold flex items-center gap-2">
-              <Sparkles className="w-6 h-6 text-primary" />
-              AI Learning Hub
-            </h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              Your personal team of AI agents - Learning, Teaching, Research & More
-            </p>
+        <div className="border-b p-4 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 flex-1 min-w-0">
+            {/* Mobile Menu Button */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="lg:hidden flex-shrink-0"
+              onClick={() => setShowMobileSidebar(true)}
+              data-testid="button-open-sidebar"
+            >
+              <Menu className="w-5 h-5" />
+            </Button>
+
+            <div className="min-w-0">
+              <h1 className="text-lg sm:text-2xl font-semibold flex items-center gap-2">
+                <Sparkles className="w-5 h-5 sm:w-6 sm:h-6 text-primary flex-shrink-0" />
+                <span className="truncate">AI Learning Hub</span>
+              </h1>
+              <p className="text-xs sm:text-sm text-muted-foreground mt-1 hidden sm:block">
+                Your personal team of AI agents - Learning, Teaching, Research & More
+              </p>
+            </div>
           </div>
-          <div className="flex gap-2">
+          
+          <div className="flex gap-2 flex-shrink-0">
             {isAdmin && (
               <Button
                 variant="outline"
@@ -258,6 +301,7 @@ export default function Home() {
                 onClick={() => window.location.href = "/admin"}
                 data-testid="button-admin-panel"
                 title="Admin Panel"
+                className="hidden sm:flex"
               >
                 <Shield className="w-4 h-4" />
               </Button>
@@ -275,15 +319,15 @@ export default function Home() {
         </div>
 
         {/* Messages */}
-        <ScrollArea className="flex-1 p-6" ref={scrollRef}>
-          <div className="max-w-4xl mx-auto space-y-6">
+        <ScrollArea className="flex-1 p-3 sm:p-6" ref={scrollRef}>
+          <div className="max-w-4xl mx-auto space-y-4 sm:space-y-6">
             {!selectedConversation && messages.length === 0 && !streamingMessage && (
-              <div className="text-center py-12">
-                <div className="inline-flex items-center justify-center w-24 h-24 rounded-full bg-gradient-to-br from-purple-500 via-cyan-500 to-emerald-500 mb-6">
-                  <Sparkles className="w-12 h-12 text-white" />
+              <div className="text-center py-8 sm:py-12 px-4">
+                <div className="inline-flex items-center justify-center w-16 h-16 sm:w-24 sm:h-24 rounded-full bg-gradient-to-br from-purple-500 via-cyan-500 to-emerald-500 mb-4 sm:mb-6">
+                  <Sparkles className="w-8 h-8 sm:w-12 sm:h-12 text-white" />
                 </div>
-                <h2 className="text-3xl font-bold mb-2">Welcome to Your AI Team</h2>
-                <p className="text-muted-foreground mb-8">
+                <h2 className="text-2xl sm:text-3xl font-bold mb-2">Welcome to Your AI Team</h2>
+                <p className="text-sm sm:text-base text-muted-foreground mb-6 sm:mb-8">
                   Specialized agents ready to help you learn, teach, research, and organize
                 </p>
                 <div className="grid gap-4 max-w-2xl mx-auto">
@@ -418,7 +462,7 @@ export default function Home() {
         </ScrollArea>
 
         {/* Input Area */}
-        <div className="border-t p-4">
+        <div className="border-t p-3 sm:p-4">
           <div className="max-w-4xl mx-auto flex gap-2">
             <Textarea
               data-testid="input-message"
@@ -431,7 +475,7 @@ export default function Home() {
                 }
               }}
               placeholder="Ask anything..."
-              className="min-h-[60px] max-h-[200px] resize-none"
+              className="min-h-[50px] sm:min-h-[60px] max-h-[200px] resize-none text-base"
               disabled={isStreaming}
             />
             <Button
@@ -439,9 +483,9 @@ export default function Home() {
               onClick={handleSend}
               disabled={!input.trim() || isStreaming}
               size="icon"
-              className="h-[60px] w-[60px]"
+              className="h-[50px] w-[50px] sm:h-[60px] sm:w-[60px] flex-shrink-0"
             >
-              <Send className="w-5 h-5" />
+              <Send className="w-4 h-4 sm:w-5 sm:h-5" />
             </Button>
           </div>
         </div>
