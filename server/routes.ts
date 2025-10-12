@@ -15,7 +15,7 @@ import {
 } from "@shared/schema";
 import { setupAuth, isAuthenticated, isAdmin } from "./replitAuth";
 import OpenAI from "openai";
-import { analyzeAndRoute, generateAgentResponse, AGENTS } from "./agentCoordinator";
+import { analyzeAndRoute, generateAgentResponse, AGENTS, executeFunction } from "./agentCoordinator";
 
 const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
@@ -202,39 +202,110 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.setHeader('Connection', 'keep-alive');
 
     try {
-      // Stream response from selected agent
-      const stream = await generateAgentResponse(agentRole, chatMessages, true);
-
-      let fullResponse = '';
-
-      for await (const chunk of stream) {
-        const content = chunk.choices[0]?.delta?.content || '';
-        if (content) {
-          fullResponse += content;
+      // Task Manager always uses non-streaming to support function calling
+      if (agentRole === 'task_manager') {
+        const response = await generateAgentResponse(agentRole, chatMessages, false);
+        const choice = response.choices[0];
+        
+        let fullResponse = '';
+        let functionExecuted = null;
+        
+        // Check if AI wants to call a function
+        if (choice.message.tool_calls && choice.message.tool_calls.length > 0) {
+          const toolCall = choice.message.tool_calls[0];
+          const functionName = toolCall.function.name;
+          functionExecuted = functionName;
+          
+          try {
+            const functionArgs = JSON.parse(toolCall.function.arguments);
+            
+            // Execute the function
+            const result = await executeFunction(functionName, functionArgs);
+            
+            // Get confirmation message from AI
+            const confirmationMessages = [
+              ...chatMessages,
+              { role: "assistant" as const, content: choice.message.content || "", tool_calls: choice.message.tool_calls },
+              { role: "tool" as const, content: JSON.stringify(result), tool_call_id: toolCall.id }
+            ];
+            
+            const confirmationResponse = await generateAgentResponse(agentRole, confirmationMessages as any, false);
+            fullResponse = confirmationResponse.choices[0].message.content || '';
+            
+            if (!result.success) {
+              fullResponse = `I encountered an error: ${result.error}. ${fullResponse}`;
+            }
+          } catch (funcError: any) {
+            fullResponse = `I had trouble executing that action: ${funcError.message}. How else can I help?`;
+          }
+        } else {
+          // No function call, just respond normally
+          fullResponse = choice.message.content || '';
+        }
+        
+        // Manually "stream" the response in chunks for consistent UX
+        const words = fullResponse.split(' ');
+        for (let i = 0; i < words.length; i++) {
+          const chunk = (i === 0 ? '' : ' ') + words[i];
           res.write(`data: ${JSON.stringify({ 
-            content, 
+            content: chunk, 
             provider: 'openai',
             model: selectedAgent.model,
             agentRole: selectedAgent.role,
             agentName: selectedAgent.name,
-            taskType
+            taskType,
+            functionExecuted: i === 0 ? functionExecuted : undefined
           })}\n\n`);
         }
+        
+        // Save assistant message
+        await storage.createMessage({
+          conversationId,
+          role: "assistant",
+          content: fullResponse,
+          aiProvider: 'openai',
+          model: selectedAgent.model,
+          agentRole: selectedAgent.role,
+          taskType,
+        });
+        
+        res.write(`data: [DONE]\n\n`);
+        res.end();
+      } else {
+        // Normal streaming for other agents
+        const stream = await generateAgentResponse(agentRole, chatMessages, true);
+
+        let fullResponse = '';
+
+        for await (const chunk of stream) {
+          const content = chunk.choices[0]?.delta?.content || '';
+          if (content) {
+            fullResponse += content;
+            res.write(`data: ${JSON.stringify({ 
+              content, 
+              provider: 'openai',
+              model: selectedAgent.model,
+              agentRole: selectedAgent.role,
+              agentName: selectedAgent.name,
+              taskType
+            })}\n\n`);
+          }
+        }
+
+        // Save assistant message with agent metadata
+        await storage.createMessage({
+          conversationId,
+          role: "assistant",
+          content: fullResponse,
+          aiProvider: 'openai',
+          model: selectedAgent.model,
+          agentRole: selectedAgent.role,
+          taskType,
+        });
+
+        res.write(`data: [DONE]\n\n`);
+        res.end();
       }
-
-      // Save assistant message with agent metadata
-      await storage.createMessage({
-        conversationId,
-        role: "assistant",
-        content: fullResponse,
-        aiProvider: 'openai',
-        model: selectedAgent.model,
-        agentRole: selectedAgent.role,
-        taskType,
-      });
-
-      res.write(`data: [DONE]\n\n`);
-      res.end();
     } catch (error: any) {
       console.error('AI Error:', error);
       res.write(`data: ${JSON.stringify({ error: error.message })}\n\n`);

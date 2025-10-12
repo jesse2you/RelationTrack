@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { storage } from "./storage";
 
 const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
@@ -117,11 +118,13 @@ Remember: Good research turns information into understanding.`,
   task_manager: {
     name: "Task Manager",
     role: "task_manager",
-    description: "Helps organize projects and tasks",
-    systemPrompt: `You are a Task Manager - an AI specialized in project organization and planning.
+    description: "Helps organize projects and tasks - can create/manage tasks, meetings, and schedules",
+    systemPrompt: `You are MeetingMate Task Manager - an AI specialized in project organization and planning with REAL database access.
 
 Your role:
 - Help users organize their work
+- **ACTUALLY CREATE tasks, meetings, and schedules** when asked
+- Update and manage existing items
 - Create actionable task lists
 - Break projects into manageable steps
 - Prioritize tasks effectively
@@ -138,7 +141,18 @@ Approach:
 
 Remember: Good organization turns overwhelm into action.`,
     model: "gpt-4o-mini",
-    keywords: ["organize", "plan", "todo", "task", "project", "manage", "schedule"],
+    keywords: [
+      // Organization
+      "organize", "plan", "todo", "task", "project", "manage", 
+      // Meetings
+      "meeting", "meet", "appointment", "call", "sync", "catchup", "catch up",
+      // Actions
+      "schedule", "create", "add", "make", "set up", "setup", "book", "log", "note", "jot", "record",
+      // Reminders
+      "remind", "reminder", "remember", "don't forget", "need to", "notify", "ping", "alert",
+      // Lists
+      "list", "agenda", "calendar", "to-do", "to do"
+    ],
   },
 };
 
@@ -196,6 +210,122 @@ export function analyzeAndRoute(userMessage: string): {
   };
 }
 
+// MeetingMate function tools for Task Manager
+const TASK_MANAGER_TOOLS = [
+  {
+    type: "function" as const,
+    function: {
+      name: "create_task",
+      description: "Create a new task in the user's task list",
+      parameters: {
+        type: "object",
+        properties: {
+          title: { type: "string", description: "The task title" },
+          description: { type: "string", description: "Optional task description" },
+          priority: { type: "string", enum: ["low", "medium", "high"], description: "Task priority" },
+          dueDate: { type: "string", description: "Optional due date (ISO format)" }
+        },
+        required: ["title"]
+      }
+    }
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "create_meeting",
+      description: "Schedule a new meeting",
+      parameters: {
+        type: "object",
+        properties: {
+          title: { type: "string", description: "Meeting title" },
+          meetingDate: { type: "string", description: "Meeting date/time (ISO format)" },
+          duration: { type: "string", description: "Meeting duration (e.g., '1 hour', '30 minutes')" },
+          participants: { type: "array", items: { type: "string" }, description: "List of participant emails" },
+          notes: { type: "string", description: "Meeting notes or agenda" }
+        },
+        required: ["title", "meetingDate"]
+      }
+    }
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "create_schedule",
+      description: "Create a recurring schedule",
+      parameters: {
+        type: "object",
+        properties: {
+          title: { type: "string", description: "Schedule title" },
+          scheduledTime: { type: "string", description: "Scheduled time (ISO format)" },
+          recurrence: { type: "string", enum: ["once", "daily", "weekly", "monthly"], description: "Recurrence pattern" },
+          description: { type: "string", description: "Schedule description" }
+        },
+        required: ["title", "scheduledTime"]
+      }
+    }
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "get_tasks",
+      description: "Get the user's current task list",
+      parameters: {
+        type: "object",
+        properties: {}
+      }
+    }
+  }
+];
+
+// Execute a function call
+export async function executeFunction(functionName: string, args: any): Promise<any> {
+  try {
+    switch (functionName) {
+      case "create_task":
+        const task = await storage.createTask({
+          title: args.title,
+          description: args.description || null,
+          priority: args.priority || "medium",
+          dueDate: args.dueDate ? new Date(args.dueDate) : null,
+          status: "pending",
+          userId: "default_user"
+        });
+        return { success: true, task };
+      
+      case "create_meeting":
+        const meeting = await storage.createMeeting({
+          title: args.title,
+          meetingDate: new Date(args.meetingDate),
+          duration: args.duration || null,
+          participants: args.participants || [],
+          notes: args.notes || null,
+          userId: "default_user"
+        });
+        return { success: true, meeting };
+      
+      case "create_schedule":
+        const schedule = await storage.createSchedule({
+          title: args.title,
+          scheduledTime: new Date(args.scheduledTime),
+          recurrence: args.recurrence || "once",
+          description: args.description || null,
+          isActive: true,
+          userId: "default_user"
+        });
+        return { success: true, schedule };
+      
+      case "get_tasks":
+        const tasks = await storage.getTasks();
+        return { success: true, tasks };
+      
+      default:
+        return { success: false, error: "Unknown function" };
+    }
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+
 // Generate response using selected agent
 export async function generateAgentResponse(
   agentRole: string,
@@ -218,9 +348,17 @@ export async function generateAgentResponse(
   
   const allMessages = [systemMessage, ...recentMessages];
   
-  return await openai.chat.completions.create({
+  // Add tools for Task Manager agent
+  const options: any = {
     model: agent.model,
     messages: allMessages,
     stream,
-  });
+  };
+  
+  if (agentRole === "task_manager") {
+    options.tools = TASK_MANAGER_TOOLS;
+    options.tool_choice = "auto";
+  }
+  
+  return await openai.chat.completions.create(options);
 }
