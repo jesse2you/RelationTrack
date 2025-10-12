@@ -204,7 +204,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       // Task Manager always uses non-streaming to support function calling
       if (agentRole === 'task_manager') {
-        const response = await generateAgentResponse(agentRole, chatMessages, false);
+        const userId = (req.user as any)?.id || 'default_user';
+        const response = await generateAgentResponse(agentRole, chatMessages, false, userId);
         const choice = response.choices[0];
         
         let fullResponse = '';
@@ -229,7 +230,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               { role: "tool" as const, content: JSON.stringify(result), tool_call_id: toolCall.id }
             ];
             
-            const confirmationResponse = await generateAgentResponse(agentRole, confirmationMessages as any, false);
+            const confirmationResponse = await generateAgentResponse(agentRole, confirmationMessages as any, false, userId);
             fullResponse = confirmationResponse.choices[0].message.content || '';
             
             if (!result.success) {
@@ -273,7 +274,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.end();
       } else {
         // Normal streaming for other agents
-        const stream = await generateAgentResponse(agentRole, chatMessages, true);
+        const userId = (req.user as any)?.id || 'default_user';
+        const stream = await generateAgentResponse(agentRole, chatMessages, true, userId);
 
         let fullResponse = '';
 

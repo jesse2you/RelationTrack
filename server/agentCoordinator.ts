@@ -326,17 +326,49 @@ export async function executeFunction(functionName: string, args: any): Promise<
   }
 }
 
+// Format user memory for agent context
+function formatUserMemory(memories: any[]): string {
+  if (!memories || memories.length === 0) return '';
+  
+  const grouped = memories.reduce((acc: any, mem) => {
+    const category = mem.category || 'general';
+    if (!acc[category]) acc[category] = [];
+    acc[category].push(mem);
+    return acc;
+  }, {});
+  
+  let formatted = '';
+  for (const [category, mems] of Object.entries<any>(grouped)) {
+    formatted += `\n### ${category.toUpperCase()}:\n`;
+    mems.forEach((mem: any) => {
+      formatted += `- ${mem.content} (${mem.memoryType}, importance: ${mem.importance})\n`;
+    });
+  }
+  
+  return formatted;
+}
+
 // Generate response using selected agent
 export async function generateAgentResponse(
   agentRole: string,
   messages: Array<{ role: "user" | "assistant"; content: string }>,
-  stream: boolean = true
+  stream: boolean = true,
+  userId: string = 'default_user'
 ): Promise<any> {
   const agent = AGENTS[agentRole] || AGENTS.coordinator;
   
+  // Load user memory for cross-conversation context
+  const userMemories = await storage.getUserMemories(userId);
+  const memoryContext = formatUserMemory(userMemories);
+  
+  // Enhanced system prompt with user memory
+  const enhancedPrompt = memoryContext 
+    ? `${agent.systemPrompt}\n\n## USER CONTEXT (From Previous Conversations):\n${memoryContext}`
+    : agent.systemPrompt;
+  
   const systemMessage = {
     role: "system" as const,
-    content: agent.systemPrompt
+    content: enhancedPrompt
   };
   
   // Cost optimization: Limit context window to last 10 messages (5 turns)
