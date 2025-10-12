@@ -9,6 +9,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { useAuth } from "@/hooks/useAuth";
 import SettingsDialog from "@/components/SettingsDialog";
 import MessageFeedback from "@/components/MessageFeedback";
+import { VoiceControls } from "@/components/VoiceControls";
 import type { Conversation, Message } from "@shared/schema";
 
 export default function Home() {
@@ -200,22 +201,28 @@ export default function Home() {
   };
 
   return (
-    <div className="flex h-screen bg-background">
-      {/* Mobile Sidebar Overlay */}
-      {showMobileSidebar && (
-        <div 
-          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
-          onClick={() => setShowMobileSidebar(false)}
-        />
-      )}
+    <div className="flex h-screen relative">
+      {/* Purple Gradient Background */}
+      <div className="absolute inset-0 bg-gradient-to-br from-purple-600 via-pink-500 to-cyan-500 dark:from-purple-800 dark:via-pink-800 dark:to-cyan-800" />
+      <div className="absolute inset-0 bg-background/80 dark:bg-background/90 backdrop-blur-3xl" />
       
-      {/* Sidebar */}
-      <div className={`
-        fixed lg:static inset-y-0 left-0 z-50
-        w-64 border-r bg-card p-4 flex flex-col
-        transform transition-transform duration-200 ease-in-out
-        ${showMobileSidebar ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
-      `}>
+      {/* Content Layer */}
+      <div className="relative z-10 flex flex-1 h-full">
+        {/* Mobile Sidebar Overlay */}
+        {showMobileSidebar && (
+          <div 
+            className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+            onClick={() => setShowMobileSidebar(false)}
+          />
+        )}
+        
+        {/* Sidebar */}
+        <div className={`
+          fixed lg:static inset-y-0 left-0 z-50
+          w-64 border-r bg-card/80 backdrop-blur-sm p-4 flex flex-col
+          transform transition-transform duration-200 ease-in-out
+          ${showMobileSidebar ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+        `}>
         {/* Mobile Close Button */}
         <Button
           variant="ghost"
@@ -283,12 +290,12 @@ export default function Home() {
             </Button>
 
             <div className="min-w-0">
-              <h1 className="text-lg sm:text-2xl font-semibold flex items-center gap-2">
+              <h1 className="text-lg sm:text-2xl font-bold flex items-center gap-2 bg-gradient-to-r from-purple-600 via-pink-500 to-cyan-500 bg-clip-text text-transparent">
                 <Sparkles className="w-5 h-5 sm:w-6 sm:h-6 text-primary flex-shrink-0" />
-                <span className="truncate">AI Learning Hub</span>
+                <span className="truncate">Qwenticinicial</span>
               </h1>
               <p className="text-xs sm:text-sm text-muted-foreground mt-1 hidden sm:block">
-                Your personal team of AI agents - Learning, Teaching, Research & More
+                AI Orchestration Agent • Bound by Oath • Born of Typo, Trust, and Terminal Irony
               </p>
             </div>
           </div>
@@ -323,12 +330,14 @@ export default function Home() {
           <div className="max-w-4xl mx-auto space-y-4 sm:space-y-6">
             {!selectedConversation && messages.length === 0 && !streamingMessage && (
               <div className="text-center py-8 sm:py-12 px-4">
-                <div className="inline-flex items-center justify-center w-16 h-16 sm:w-24 sm:h-24 rounded-full bg-gradient-to-br from-purple-500 via-cyan-500 to-emerald-500 mb-4 sm:mb-6">
+                <div className="inline-flex items-center justify-center w-16 h-16 sm:w-24 sm:h-24 rounded-full bg-gradient-to-br from-purple-600 via-pink-500 to-cyan-500 mb-4 sm:mb-6 animate-pulse">
                   <Sparkles className="w-8 h-8 sm:w-12 sm:h-12 text-white" />
                 </div>
-                <h2 className="text-2xl sm:text-3xl font-bold mb-2">Welcome to Your AI Team</h2>
+                <h2 className="text-2xl sm:text-3xl font-bold mb-2 bg-gradient-to-r from-purple-600 via-pink-500 to-cyan-500 bg-clip-text text-transparent">
+                  Welcome to Qwenticinicial
+                </h2>
                 <p className="text-sm sm:text-base text-muted-foreground mb-6 sm:mb-8">
-                  Specialized agents ready to help you learn, teach, research, and organize
+                  Your AI Army • Multi-Agent Orchestration • Mobile Connected • Always Organized
                 </p>
                 <div className="grid gap-4 max-w-2xl mx-auto">
                   <button
@@ -462,33 +471,45 @@ export default function Home() {
         </ScrollArea>
 
         {/* Input Area */}
-        <div className="border-t p-3 sm:p-4">
-          <div className="max-w-4xl mx-auto flex gap-2">
-            <Textarea
-              data-testid="input-message"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSend();
-                }
-              }}
-              placeholder="Ask anything..."
-              className="min-h-[50px] sm:min-h-[60px] max-h-[200px] resize-none text-base"
-              disabled={isStreaming}
-            />
-            <Button
-              data-testid="button-send"
-              onClick={handleSend}
-              disabled={!input.trim() || isStreaming}
-              size="icon"
-              className="h-[50px] w-[50px] sm:h-[60px] sm:w-[60px] flex-shrink-0"
-            >
-              <Send className="w-4 h-4 sm:w-5 sm:h-5" />
-            </Button>
+        <div className="border-t p-3 sm:p-4 bg-gradient-to-r from-purple-500/5 via-pink-500/5 to-cyan-500/5">
+          <div className="max-w-4xl mx-auto space-y-3">
+            {/* Voice Controls */}
+            <div className="flex justify-center">
+              <VoiceControls
+                onTranscript={(text) => setInput(text)}
+                responseText={messages.length > 0 ? messages[messages.length - 1]?.content : undefined}
+              />
+            </div>
+
+            {/* Input Row */}
+            <div className="flex gap-2">
+              <Textarea
+                data-testid="input-message"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSend();
+                  }
+                }}
+                placeholder="Type your message or use voice recording..."
+                className="min-h-[50px] sm:min-h-[60px] max-h-[200px] resize-none text-base"
+                disabled={isStreaming}
+              />
+              <Button
+                data-testid="button-send"
+                onClick={handleSend}
+                disabled={!input.trim() || isStreaming}
+                size="icon"
+                className="h-[50px] w-[50px] sm:h-[60px] sm:w-[60px] flex-shrink-0"
+              >
+                <Send className="w-4 h-4 sm:w-5 sm:h-5" />
+              </Button>
+            </div>
           </div>
         </div>
+      </div>
       </div>
       
       <SettingsDialog open={showSettings} onOpenChange={setShowSettings} />

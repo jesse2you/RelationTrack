@@ -48,9 +48,9 @@
 
   --popover-border: 220 13% 88%;
 
-  --primary: 210 90% 50%;
+  --primary: 270 80% 60%;
 
-  --primary-foreground: 210 90% 98%;
+  --primary-foreground: 0 0% 100%;
 
   --secondary: 220 13% 91%;
 
@@ -166,9 +166,9 @@
 
   --popover-border: 220 9% 18%;
 
-  --primary: 210 90% 58%;
+  --primary: 270 80% 65%;
 
-  --primary-foreground: 210 90% 98%;
+  --primary-foreground: 0 0% 100%;
 
   --secondary: 220 13% 16%;
 
