@@ -209,7 +209,14 @@ export async function generateAgentResponse(
     content: agent.systemPrompt
   };
   
-  const allMessages = [systemMessage, ...messages];
+  // Cost optimization: Limit context window to last 10 messages (5 turns)
+  // This significantly reduces token usage while maintaining conversation coherence
+  const MAX_CONTEXT_MESSAGES = 10;
+  const recentMessages = messages.length > MAX_CONTEXT_MESSAGES 
+    ? messages.slice(-MAX_CONTEXT_MESSAGES) 
+    : messages;
+  
+  const allMessages = [systemMessage, ...recentMessages];
   
   return await openai.chat.completions.create({
     model: agent.model,
