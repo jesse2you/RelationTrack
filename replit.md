@@ -47,6 +47,8 @@ AI Agent Router/
 ✅ **Real-time Streaming** - See responses as they're generated  
 ✅ **Conversation History** - All chats saved in database  
 ✅ **Provider Transparency** - Shows which AI answered (color-coded badges)  
+🛡️ **Admin Panel** - Secure dashboard for platform management (admin-only)  
+🤖 **Private AI Assistant** - Secret helper for admins to analyze data & get insights  
 
 ## Technology Stack (Single Unified App)
 
@@ -57,12 +59,25 @@ AI Agent Router/
 
 ## API Endpoints (All in Same App)
 
+**Public Routes:**
 - `GET /api/conversations` - List your chats
 - `POST /api/conversations` - Start new chat
 - `GET /api/conversations/:id/messages` - Get chat history
 - `POST /api/conversations/:id/messages` - Send message & get AI response
 
+**Admin Routes (Protected):**
+- `GET /api/admin/analytics` - Platform analytics (users, conversations, feedback)
+- `POST /api/admin/assistant` - Private AI assistant queries
+- `POST /api/admin/users/:id/toggle-admin` - Toggle admin status
+
 ## Recent Updates
+
+**October 12, 2025 (Latest):** Admin Panel & Private AI Assistant Added
+- 🛡️ Secure admin authentication using Replit Auth
+- 📊 Admin dashboard with real-time analytics
+- 🤖 Private AI assistant for platform management
+- 🔒 Role-based access control (isAdmin middleware)
+- 📖 Complete setup documentation (ADMIN_SETUP.md)
 
 **October 12, 2025:** All critical bugs fixed
 - ✅ SSE error handling 
@@ -90,6 +105,30 @@ messages {
   model: string (e.g., "gpt-4o")
   createdAt: timestamp
 }
+
+users {
+  id: varchar (UUID)
+  email: varchar
+  firstName: varchar
+  lastName: varchar
+  profileImageUrl: varchar
+  isAdmin: boolean (grants admin access)
+  createdAt: timestamp
+}
+
+sessions {
+  sid: varchar (session ID)
+  sess: json (session data)
+  expire: timestamp
+}
+
+userFeedback {
+  id: serial
+  messageId: string (links to message)
+  rating: string ("positive" | "negative")
+  suggestion: text
+  createdAt: timestamp
+}
 ```
 
 ## Important Notes
@@ -98,6 +137,8 @@ messages {
 - **No API key needed** - Uses Replit AI Integrations (billed to your Replit credits)
 - **Dark mode supported** - Full theme switching
 - **All data persists** - Conversations saved in PostgreSQL
+- **Admin Access** - See ADMIN_SETUP.md for instructions on enabling admin features
+- **Secure Authentication** - Uses Replit Auth with session management
 
 ## Troubleshooting
 
@@ -109,6 +150,11 @@ messages {
 **If getting 502 errors:**
 - App needs to be started via Run button for external access
 - Local terminal commands won't expose it properly
+
+**Admin Access Issues:**
+- Ensure you're logged in via Replit Auth
+- Check database: verify `isAdmin = true` for your user
+- See ADMIN_SETUP.md for detailed instructions
 
 ---
 
