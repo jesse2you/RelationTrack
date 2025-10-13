@@ -7,9 +7,61 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Brain, GraduationCap, BookOpen, Search, CheckSquare, Sparkles, Plus, MessageSquare, CalendarDays, Home } from "lucide-react";
+import { Brain, GraduationCap, BookOpen, Search, CheckSquare, Sparkles, Plus, MessageSquare, CalendarDays, Home, Crown, Zap, Globe, Calendar, Mail, FileText, Video, Image as ImageIcon, Youtube, Settings } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { ThemeToggle } from "@/components/ThemeToggle";
+
+// Tier configurations (matching backend)
+const TIER_INFO = {
+  free: {
+    name: "Free",
+    icon: Sparkles,
+    color: "text-gray-500",
+    bgColor: "bg-gray-500/10",
+    price: "$0/month",
+    description: "Get started with basic AI assistance"
+  },
+  pro: {
+    name: "Pro",
+    icon: Zap,
+    color: "text-blue-500",
+    bgColor: "bg-blue-500/10",
+    price: "$20/month",
+    description: "Unlock full AI orchestration"
+  },
+  premium: {
+    name: "Premium",
+    icon: Crown,
+    color: "text-purple-500",
+    bgColor: "bg-purple-500/10",
+    price: "$50/month",
+    description: "Ultimate AI power with multimedia"
+  }
+};
+
+const TOOLS_BY_TIER = {
+  free: [
+    { name: "Web Search", icon: Globe, limit: "10/day", color: "text-green-500" },
+    { name: "Task Management", icon: CheckSquare, limit: "Unlimited", color: "text-orange-500" },
+  ],
+  pro: [
+    { name: "Web Search", icon: Globe, limit: "Unlimited", color: "text-green-500" },
+    { name: "News Aggregation", icon: FileText, limit: "Unlimited", color: "text-blue-500" },
+    { name: "Gmail Basic", icon: Mail, limit: "50/day", color: "text-red-500" },
+    { name: "Calendar", icon: Calendar, limit: "20/day", color: "text-cyan-500" },
+    { name: "Task Management", icon: CheckSquare, limit: "Unlimited", color: "text-orange-500" },
+  ],
+  premium: [
+    { name: "Web Search", icon: Globe, limit: "Unlimited", color: "text-green-500" },
+    { name: "News Aggregation", icon: FileText, limit: "Unlimited", color: "text-blue-500" },
+    { name: "Gmail Advanced", icon: Mail, limit: "Unlimited", color: "text-red-500" },
+    { name: "Notion", icon: FileText, limit: "Unlimited", color: "text-purple-500" },
+    { name: "Image Generation", icon: ImageIcon, limit: "100/month", color: "text-pink-500" },
+    { name: "Video Creation", icon: Video, limit: "20/month", color: "text-violet-500" },
+    { name: "YouTube Automation", icon: Youtube, limit: "10/month", color: "text-red-600" },
+    { name: "Custom Agents", icon: Settings, limit: "Available", color: "text-gray-500" },
+  ]
+};
 
 const AGENTS = [
   {
@@ -75,7 +127,12 @@ export default function AgentDashboard() {
   const [taskTitle, setTaskTitle] = useState("");
   const [taskDescription, setTaskDescription] = useState("");
   const [taskPriority, setTaskPriority] = useState("medium");
+  const [currentTier, setCurrentTier] = useState<'free' | 'pro' | 'premium'>('free'); // User's current tier
   const { toast } = useToast();
+  
+  const tierInfo = TIER_INFO[currentTier];
+  const TierIcon = tierInfo.icon;
+  const availableTools = TOOLS_BY_TIER[currentTier];
 
   const handleAssignTask = () => {
     if (!selectedAgent || !taskTitle || !taskDescription) {
@@ -235,6 +292,48 @@ export default function AgentDashboard() {
           </DialogContent>
         </Dialog>
       </div>
+
+      {/* Tier & Tools Section */}
+      <Card className="hover-elevate" data-testid="card-tier-info">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className={`p-3 rounded-lg ${tierInfo.bgColor}`}>
+                <TierIcon className={`w-6 h-6 ${tierInfo.color}`} />
+              </div>
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  {tierInfo.name} Tier
+                  <Badge variant="outline" className={tierInfo.color}>{tierInfo.price}</Badge>
+                </CardTitle>
+                <CardDescription>{tierInfo.description}</CardDescription>
+              </div>
+            </div>
+            <Button variant="outline" data-testid="button-upgrade-tier">
+              Upgrade
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div>
+            <h3 className="text-sm font-semibold mb-3">Available Tools & Modules</h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {availableTools.map((tool) => {
+                const ToolIcon = tool.icon;
+                return (
+                  <div key={tool.name} className="flex items-center gap-2 p-2 rounded-lg bg-muted" data-testid={`tool-${tool.name.toLowerCase().replace(/\s+/g, '-')}`}>
+                    <ToolIcon className={`w-4 h-4 ${tool.color}`} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{tool.name}</p>
+                      <p className="text-xs text-muted-foreground">{tool.limit}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Agent Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

@@ -339,6 +339,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ============ ORCHESTRATION ROUTES ============
+  
+  // Orchestrate - Master Orchestrator analyzes request and coordinates agents
+  app.post("/api/orchestrate", async (req, res) => {
+    const { message, conversationId, userId = 'default_user', userTier = 'free' } = req.body;
+    
+    try {
+      // Import orchestrator (dynamic to avoid circular deps)
+      const { orchestrate } = await import('./masterOrchestrator');
+      
+      // Execute orchestration
+      const result = await orchestrate(message, conversationId, userId, userTier);
+      
+      res.json(result);
+    } catch (error: any) {
+      console.error('Orchestration error:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: error.message 
+      });
+    }
+  });
+
   // ============ ADMIN ROUTES ============
   
   // Admin: Get platform analytics

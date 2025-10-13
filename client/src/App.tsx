@@ -8,6 +8,7 @@ import Home from "@/pages/Home";
 import Admin from "@/pages/Admin";
 import Organization from "@/pages/Organization";
 import AgentDashboard from "@/pages/AgentDashboard";
+import Orchestration from "@/pages/Orchestration";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -17,6 +18,7 @@ function Router() {
       <Route path="/admin" component={Admin} />
       <Route path="/organization" component={Organization} />
       <Route path="/agents" component={AgentDashboard} />
+      <Route path="/orchestrate" component={Orchestration} />
       <Route component={NotFound} />
     </Switch>
   );
