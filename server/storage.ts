@@ -11,6 +11,11 @@ import {
   userMemory,
   userTiers,
   agentInteractions,
+  companies,
+  contacts,
+  projects,
+  communications,
+  research,
   type InsertConversation, 
   type Conversation, 
   type InsertMessage, 
@@ -32,7 +37,17 @@ import {
   type InsertUserTier,
   type UserTier,
   type InsertAgentInteraction,
-  type AgentInteraction
+  type AgentInteraction,
+  type InsertCompany,
+  type Company,
+  type InsertContact,
+  type Contact,
+  type InsertProject,
+  type Project,
+  type InsertCommunication,
+  type Communication,
+  type InsertResearch,
+  type Research
 } from "@shared/schema";
 import { eq, desc, and } from "drizzle-orm";
 
@@ -95,6 +110,49 @@ export interface IStorage {
   // Agent Interactions
   getAgentInteractions(userId?: string): Promise<AgentInteraction[]>;
   createAgentInteraction(data: InsertAgentInteraction): Promise<AgentInteraction>;
+  
+  // CRM - Companies
+  getCompanies(userId?: string): Promise<Company[]>;
+  getCompany(id: string): Promise<Company | undefined>;
+  createCompany(data: InsertCompany): Promise<Company>;
+  updateCompany(id: string, data: Partial<InsertCompany>): Promise<Company>;
+  deleteCompany(id: string): Promise<void>;
+  
+  // CRM - Contacts
+  getContacts(userId?: string): Promise<Contact[]>;
+  getContact(id: string): Promise<Contact | undefined>;
+  getContactsByCompany(companyId: string): Promise<Contact[]>;
+  createContact(data: InsertContact): Promise<Contact>;
+  updateContact(id: string, data: Partial<InsertContact>): Promise<Contact>;
+  deleteContact(id: string): Promise<void>;
+  
+  // CRM - Projects
+  getProjects(userId?: string): Promise<Project[]>;
+  getProject(id: string): Promise<Project | undefined>;
+  getProjectsByContact(contactId: string): Promise<Project[]>;
+  getProjectsByCompany(companyId: string): Promise<Project[]>;
+  createProject(data: InsertProject): Promise<Project>;
+  updateProject(id: string, data: Partial<InsertProject>): Promise<Project>;
+  deleteProject(id: string): Promise<void>;
+  
+  // CRM - Communications
+  getCommunications(userId?: string): Promise<Communication[]>;
+  getCommunication(id: string): Promise<Communication | undefined>;
+  getCommunicationsByContact(contactId: string): Promise<Communication[]>;
+  getCommunicationsByProject(projectId: string): Promise<Communication[]>;
+  createCommunication(data: InsertCommunication): Promise<Communication>;
+  updateCommunication(id: string, data: Partial<InsertCommunication>): Promise<Communication>;
+  deleteCommunication(id: string): Promise<void>;
+  
+  // CRM - Research
+  getResearch(userId?: string): Promise<Research[]>;
+  getResearchItem(id: string): Promise<Research | undefined>;
+  getResearchByContact(contactId: string): Promise<Research[]>;
+  getResearchByCompany(companyId: string): Promise<Research[]>;
+  getResearchByProject(projectId: string): Promise<Research[]>;
+  createResearch(data: InsertResearch): Promise<Research>;
+  updateResearch(id: string, data: Partial<InsertResearch>): Promise<Research>;
+  deleteResearch(id: string): Promise<void>;
 }
 
 export class DbStorage implements IStorage {
@@ -342,6 +400,206 @@ export class DbStorage implements IStorage {
   async createAgentInteraction(data: InsertAgentInteraction): Promise<AgentInteraction> {
     const result = await db.insert(agentInteractions).values(data).returning();
     return result[0];
+  }
+
+  // ============ CRM OPERATIONS ============
+  
+  // Companies
+  async getCompanies(userId: string = 'default_user'): Promise<Company[]> {
+    return await db.select().from(companies)
+      .where(eq(companies.userId, userId))
+      .orderBy(desc(companies.createdAt));
+  }
+
+  async getCompany(id: string): Promise<Company | undefined> {
+    const result = await db.select().from(companies).where(eq(companies.id, id));
+    return result[0];
+  }
+
+  async createCompany(data: InsertCompany): Promise<Company> {
+    const result = await db.insert(companies).values(data).returning();
+    return result[0];
+  }
+
+  async updateCompany(id: string, data: Partial<InsertCompany>): Promise<Company> {
+    const result = await db
+      .update(companies)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(companies.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteCompany(id: string): Promise<void> {
+    await db.delete(companies).where(eq(companies.id, id));
+  }
+
+  // Contacts
+  async getContacts(userId: string = 'default_user'): Promise<Contact[]> {
+    return await db.select().from(contacts)
+      .where(eq(contacts.userId, userId))
+      .orderBy(desc(contacts.lastContactDate));
+  }
+
+  async getContact(id: string): Promise<Contact | undefined> {
+    const result = await db.select().from(contacts).where(eq(contacts.id, id));
+    return result[0];
+  }
+
+  async getContactsByCompany(companyId: string): Promise<Contact[]> {
+    return await db.select().from(contacts)
+      .where(eq(contacts.companyId, companyId))
+      .orderBy(desc(contacts.createdAt));
+  }
+
+  async createContact(data: InsertContact): Promise<Contact> {
+    const result = await db.insert(contacts).values(data).returning();
+    return result[0];
+  }
+
+  async updateContact(id: string, data: Partial<InsertContact>): Promise<Contact> {
+    const result = await db
+      .update(contacts)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(contacts.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteContact(id: string): Promise<void> {
+    await db.delete(contacts).where(eq(contacts.id, id));
+  }
+
+  // Projects
+  async getProjects(userId: string = 'default_user'): Promise<Project[]> {
+    return await db.select().from(projects)
+      .where(eq(projects.userId, userId))
+      .orderBy(desc(projects.createdAt));
+  }
+
+  async getProject(id: string): Promise<Project | undefined> {
+    const result = await db.select().from(projects).where(eq(projects.id, id));
+    return result[0];
+  }
+
+  async getProjectsByContact(contactId: string): Promise<Project[]> {
+    return await db.select().from(projects)
+      .where(eq(projects.contactId, contactId))
+      .orderBy(desc(projects.createdAt));
+  }
+
+  async getProjectsByCompany(companyId: string): Promise<Project[]> {
+    return await db.select().from(projects)
+      .where(eq(projects.companyId, companyId))
+      .orderBy(desc(projects.createdAt));
+  }
+
+  async createProject(data: InsertProject): Promise<Project> {
+    const result = await db.insert(projects).values(data).returning();
+    return result[0];
+  }
+
+  async updateProject(id: string, data: Partial<InsertProject>): Promise<Project> {
+    const result = await db
+      .update(projects)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(projects.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteProject(id: string): Promise<void> {
+    await db.delete(projects).where(eq(projects.id, id));
+  }
+
+  // Communications
+  async getCommunications(userId: string = 'default_user'): Promise<Communication[]> {
+    return await db.select().from(communications)
+      .where(eq(communications.userId, userId))
+      .orderBy(desc(communications.communicationDate));
+  }
+
+  async getCommunication(id: string): Promise<Communication | undefined> {
+    const result = await db.select().from(communications).where(eq(communications.id, id));
+    return result[0];
+  }
+
+  async getCommunicationsByContact(contactId: string): Promise<Communication[]> {
+    return await db.select().from(communications)
+      .where(eq(communications.contactId, contactId))
+      .orderBy(desc(communications.communicationDate));
+  }
+
+  async getCommunicationsByProject(projectId: string): Promise<Communication[]> {
+    return await db.select().from(communications)
+      .where(eq(communications.projectId, projectId))
+      .orderBy(desc(communications.communicationDate));
+  }
+
+  async createCommunication(data: InsertCommunication): Promise<Communication> {
+    const result = await db.insert(communications).values(data).returning();
+    return result[0];
+  }
+
+  async updateCommunication(id: string, data: Partial<InsertCommunication>): Promise<Communication> {
+    const result = await db
+      .update(communications)
+      .set(data)
+      .where(eq(communications.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteCommunication(id: string): Promise<void> {
+    await db.delete(communications).where(eq(communications.id, id));
+  }
+
+  // Research
+  async getResearch(userId: string = 'default_user'): Promise<Research[]> {
+    return await db.select().from(research)
+      .where(eq(research.userId, userId))
+      .orderBy(desc(research.createdAt));
+  }
+
+  async getResearchItem(id: string): Promise<Research | undefined> {
+    const result = await db.select().from(research).where(eq(research.id, id));
+    return result[0];
+  }
+
+  async getResearchByContact(contactId: string): Promise<Research[]> {
+    return await db.select().from(research)
+      .where(eq(research.contactId, contactId))
+      .orderBy(desc(research.createdAt));
+  }
+
+  async getResearchByCompany(companyId: string): Promise<Research[]> {
+    return await db.select().from(research)
+      .where(eq(research.companyId, companyId))
+      .orderBy(desc(research.createdAt));
+  }
+
+  async getResearchByProject(projectId: string): Promise<Research[]> {
+    return await db.select().from(research)
+      .where(eq(research.projectId, projectId))
+      .orderBy(desc(research.createdAt));
+  }
+
+  async createResearch(data: InsertResearch): Promise<Research> {
+    const result = await db.insert(research).values(data).returning();
+    return result[0];
+  }
+
+  async updateResearch(id: string, data: Partial<InsertResearch>): Promise<Research> {
+    const result = await db
+      .update(research)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(research.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteResearch(id: string): Promise<void> {
+    await db.delete(research).where(eq(research.id, id));
   }
 }
 
