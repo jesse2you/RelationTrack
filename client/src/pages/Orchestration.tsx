@@ -51,7 +51,6 @@ export default function Orchestration() {
       // Call Master Orchestrator
       const res = await apiRequest("POST", "/api/orchestrate", {
         message: userInput,
-        conversationId: `orchestrate_${Date.now()}`,
         userId: 'default_user',
         userTier: 'free'
       });

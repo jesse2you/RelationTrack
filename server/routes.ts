@@ -343,14 +343,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Orchestrate - Master Orchestrator analyzes request and coordinates agents
   app.post("/api/orchestrate", async (req, res) => {
-    const { message, conversationId, userId = 'default_user', userTier = 'free' } = req.body;
+    const { message, userId = 'default_user', userTier = 'free' } = req.body;
     
     try {
+      // Create a conversation for this orchestration session
+      const conversation = await storage.createConversation({
+        title: `Orchestration: ${message.slice(0, 50)}${message.length > 50 ? '...' : ''}`
+      });
+      
       // Import orchestrator (dynamic to avoid circular deps)
       const { orchestrate } = await import('./masterOrchestrator');
       
-      // Execute orchestration
-      const result = await orchestrate(message, conversationId, userId, userTier);
+      // Execute orchestration with real conversation ID
+      const result = await orchestrate(message, conversation.id, userId, userTier);
       
       res.json(result);
     } catch (error: any) {
