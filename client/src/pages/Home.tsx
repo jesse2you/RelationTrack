@@ -4,7 +4,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { PlusCircle, Send, Sparkles, Settings, Shield, Brain, BookOpen, GraduationCap, FlaskConical, ListTodo, Menu, X, CalendarDays } from "lucide-react";
+import { PlusCircle, Send, Sparkles, Settings, Shield, Brain, BookOpen, GraduationCap, FlaskConical, ListTodo, Menu, X, CalendarDays, Network } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useAuth } from "@/hooks/useAuth";
 import SettingsDialog from "@/components/SettingsDialog";
@@ -318,6 +318,15 @@ export default function Home() {
               title="MeetingMate Organization"
             >
               <CalendarDays className="w-4 h-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => window.location.href = "/orchestrate"}
+              data-testid="button-orchestration"
+              title="Orchestration - n8n Style Workflows"
+            >
+              <Network className="w-4 h-4" />
             </Button>
             {isAdmin && (
               <Button
