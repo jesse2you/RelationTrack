@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, jsonb, index, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, jsonb, index, boolean, integer } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -218,6 +218,18 @@ export const agentTasks = pgTable("agent_tasks", {
   completedAt: timestamp("completed_at"),
 });
 
+// Tool Usage Tracking - Track tool/module usage per user for tier limits
+export const toolUsage = pgTable("tool_usage", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().default('default_user'),
+  toolName: text("tool_name").notNull(), // 'web_search', 'gmail_api', 'calendar_api', etc
+  usageCount: integer("usage_count").notNull().default(1),
+  lastUsed: timestamp("last_used").notNull().default(sql`now()`),
+  dailyCount: integer("daily_count").notNull().default(1), // Resets daily
+  monthlyCount: integer("monthly_count").notNull().default(1), // Resets monthly
+  resetDate: timestamp("reset_date").notNull().default(sql`now()`),
+});
+
 export const insertUserMemorySchema = createInsertSchema(userMemory).omit({
   id: true,
   createdAt: true,
@@ -241,6 +253,12 @@ export const insertAgentTaskSchema = createInsertSchema(agentTasks).omit({
   completedAt: true,
 });
 
+export const insertToolUsageSchema = createInsertSchema(toolUsage).omit({
+  id: true,
+  lastUsed: true,
+  resetDate: true,
+});
+
 export type InsertUserMemory = z.infer<typeof insertUserMemorySchema>;
 export type UserMemory = typeof userMemory.$inferSelect;
 export type InsertUserTier = z.infer<typeof insertUserTierSchema>;
@@ -249,3 +267,5 @@ export type InsertAgentInteraction = z.infer<typeof insertAgentInteractionSchema
 export type AgentInteraction = typeof agentInteractions.$inferSelect;
 export type InsertAgentTask = z.infer<typeof insertAgentTaskSchema>;
 export type AgentTask = typeof agentTasks.$inferSelect;
+export type InsertToolUsage = z.infer<typeof insertToolUsageSchema>;
+export type ToolUsage = typeof toolUsage.$inferSelect;

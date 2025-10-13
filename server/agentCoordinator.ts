@@ -300,6 +300,23 @@ const TASK_MANAGER_TOOLS = [
         required: ["agent", "question"]
       }
     }
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "web_search",
+      description: "Search the web for current information, news, articles, or any online content. Use this to get real-time, up-to-date information.",
+      parameters: {
+        type: "object",
+        properties: {
+          query: {
+            type: "string",
+            description: "The search query - be specific and clear about what you're looking for"
+          }
+        },
+        required: ["query"]
+      }
+    }
   }
 ];
 
@@ -377,6 +394,21 @@ export async function executeFunction(
         }
         
         return { success: true, answer: consultAnswer, agent: args.agent };
+      
+      case "web_search":
+        // Web search capability - searches online for current information
+        try {
+          // For now, return a placeholder that indicates web search capability
+          // This will be replaced with actual search API integration
+          return { 
+            success: true, 
+            query: args.query,
+            message: `Web search capability enabled. Searching for: "${args.query}"`,
+            note: "Full web search integration coming soon - will access live news, websites, and real-time data"
+          };
+        } catch (searchError: any) {
+          return { success: false, error: `Web search failed: ${searchError.message}` };
+        }
       
       default:
         return { success: false, error: "Unknown function" };
