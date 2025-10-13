@@ -10,6 +10,11 @@ import {
   insertTaskSchema,
   insertMeetingSchema,
   insertScheduleSchema,
+  insertCompanySchema,
+  insertContactSchema,
+  insertProjectSchema,
+  insertCommunicationSchema,
+  insertResearchSchema,
   userFeedback, 
   users 
 } from "@shared/schema";
@@ -365,6 +370,183 @@ export async function registerRoutes(app: Express): Promise<Server> {
         error: error.message 
       });
     }
+  });
+
+  // ============ CRM ROUTES - RelationTrack Features ============
+  
+  // Companies
+  app.get("/api/companies", async (_req, res) => {
+    const companies = await storage.getCompanies();
+    res.json(companies);
+  });
+
+  app.get("/api/companies/:id", async (req, res) => {
+    const company = await storage.getCompany(req.params.id);
+    res.json(company);
+  });
+
+  app.post("/api/companies", async (req, res) => {
+    const data = insertCompanySchema.parse(req.body);
+    const company = await storage.createCompany(data);
+    res.json(company);
+  });
+
+  app.patch("/api/companies/:id", async (req, res) => {
+    const company = await storage.updateCompany(req.params.id, req.body);
+    res.json(company);
+  });
+
+  app.delete("/api/companies/:id", async (req, res) => {
+    await storage.deleteCompany(req.params.id);
+    res.json({ success: true });
+  });
+
+  // Contacts
+  app.get("/api/contacts", async (_req, res) => {
+    const contacts = await storage.getContacts();
+    res.json(contacts);
+  });
+
+  app.get("/api/contacts/:id", async (req, res) => {
+    const contact = await storage.getContact(req.params.id);
+    res.json(contact);
+  });
+
+  app.get("/api/contacts/company/:companyId", async (req, res) => {
+    const contacts = await storage.getContactsByCompany(req.params.companyId);
+    res.json(contacts);
+  });
+
+  app.post("/api/contacts", async (req, res) => {
+    const data = insertContactSchema.parse(req.body);
+    const contact = await storage.createContact(data);
+    res.json(contact);
+  });
+
+  app.patch("/api/contacts/:id", async (req, res) => {
+    const contact = await storage.updateContact(req.params.id, req.body);
+    res.json(contact);
+  });
+
+  app.delete("/api/contacts/:id", async (req, res) => {
+    await storage.deleteContact(req.params.id);
+    res.json({ success: true });
+  });
+
+  // Projects
+  app.get("/api/projects", async (_req, res) => {
+    const projects = await storage.getProjects();
+    res.json(projects);
+  });
+
+  app.get("/api/projects/:id", async (req, res) => {
+    const project = await storage.getProject(req.params.id);
+    res.json(project);
+  });
+
+  app.get("/api/projects/contact/:contactId", async (req, res) => {
+    const projects = await storage.getProjectsByContact(req.params.contactId);
+    res.json(projects);
+  });
+
+  app.get("/api/projects/company/:companyId", async (req, res) => {
+    const projects = await storage.getProjectsByCompany(req.params.companyId);
+    res.json(projects);
+  });
+
+  app.post("/api/projects", async (req, res) => {
+    const data = insertProjectSchema.parse(req.body);
+    const project = await storage.createProject(data);
+    res.json(project);
+  });
+
+  app.patch("/api/projects/:id", async (req, res) => {
+    const project = await storage.updateProject(req.params.id, req.body);
+    res.json(project);
+  });
+
+  app.delete("/api/projects/:id", async (req, res) => {
+    await storage.deleteProject(req.params.id);
+    res.json({ success: true });
+  });
+
+  // Communications
+  app.get("/api/communications", async (_req, res) => {
+    const communications = await storage.getCommunications();
+    res.json(communications);
+  });
+
+  app.get("/api/communications/:id", async (req, res) => {
+    const communication = await storage.getCommunication(req.params.id);
+    res.json(communication);
+  });
+
+  app.get("/api/communications/contact/:contactId", async (req, res) => {
+    const communications = await storage.getCommunicationsByContact(req.params.contactId);
+    res.json(communications);
+  });
+
+  app.get("/api/communications/project/:projectId", async (req, res) => {
+    const communications = await storage.getCommunicationsByProject(req.params.projectId);
+    res.json(communications);
+  });
+
+  app.post("/api/communications", async (req, res) => {
+    const data = insertCommunicationSchema.parse(req.body);
+    const communication = await storage.createCommunication(data);
+    res.json(communication);
+  });
+
+  app.patch("/api/communications/:id", async (req, res) => {
+    const communication = await storage.updateCommunication(req.params.id, req.body);
+    res.json(communication);
+  });
+
+  app.delete("/api/communications/:id", async (req, res) => {
+    await storage.deleteCommunication(req.params.id);
+    res.json({ success: true });
+  });
+
+  // Research
+  app.get("/api/research", async (_req, res) => {
+    const research = await storage.getResearch();
+    res.json(research);
+  });
+
+  app.get("/api/research/:id", async (req, res) => {
+    const researchItem = await storage.getResearchItem(req.params.id);
+    res.json(researchItem);
+  });
+
+  app.get("/api/research/contact/:contactId", async (req, res) => {
+    const research = await storage.getResearchByContact(req.params.contactId);
+    res.json(research);
+  });
+
+  app.get("/api/research/company/:companyId", async (req, res) => {
+    const research = await storage.getResearchByCompany(req.params.companyId);
+    res.json(research);
+  });
+
+  app.get("/api/research/project/:projectId", async (req, res) => {
+    const research = await storage.getResearchByProject(req.params.projectId);
+    res.json(research);
+  });
+
+  app.post("/api/research", async (req, res) => {
+    const data = insertResearchSchema.parse(req.body);
+    const researchItem = await storage.createResearch(data);
+    res.json(researchItem);
+  });
+
+  app.patch("/api/research/:id", async (req, res) => {
+    const researchItem = await storage.updateResearch(req.params.id, req.body);
+    res.json(researchItem);
+  });
+
+  app.delete("/api/research/:id", async (req, res) => {
+    await storage.deleteResearch(req.params.id);
+    res.json({ success: true });
   });
 
   // ============ ADMIN ROUTES ============
