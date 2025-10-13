@@ -49,15 +49,14 @@ export default function Orchestration() {
 
     try {
       // Call Master Orchestrator
-      const response = await apiRequest('/api/orchestrate', {
-        method: 'POST',
-        body: JSON.stringify({
-          message: userInput,
-          conversationId: `orchestrate_${Date.now()}`,
-          userId: 'default_user',
-          userTier: 'free'
-        }),
+      const res = await apiRequest("POST", "/api/orchestrate", {
+        message: userInput,
+        conversationId: `orchestrate_${Date.now()}`,
+        userId: 'default_user',
+        userTier: 'free'
       });
+
+      const response = await res.json();
 
       if (response.success) {
         setPlan(response.plan);
