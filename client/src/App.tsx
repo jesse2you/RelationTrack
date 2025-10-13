@@ -9,6 +9,7 @@ import Admin from "@/pages/Admin";
 import Organization from "@/pages/Organization";
 import AgentDashboard from "@/pages/AgentDashboard";
 import Orchestration from "@/pages/Orchestration";
+import CRM from "@/pages/CRM";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -19,6 +20,7 @@ function Router() {
       <Route path="/organization" component={Organization} />
       <Route path="/agents" component={AgentDashboard} />
       <Route path="/orchestrate" component={Orchestration} />
+      <Route path="/crm" component={CRM} />
       <Route component={NotFound} />
     </Switch>
   );
