@@ -269,3 +269,172 @@ export type InsertAgentTask = z.infer<typeof insertAgentTaskSchema>;
 export type AgentTask = typeof agentTasks.$inferSelect;
 export type InsertToolUsage = z.infer<typeof insertToolUsageSchema>;
 export type ToolUsage = typeof toolUsage.$inferSelect;
+
+// ============ CRM TABLES - RelationTrack Features ============
+
+// Companies - Organization information
+export const companies = pgTable("companies", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().default('default_user'),
+  companyName: text("company_name").notNull(),
+  website: text("website"),
+  industry: text("industry"),
+  size: text("size"), // 'small', 'medium', 'large', 'enterprise'
+  annualRevenue: text("annual_revenue"),
+  address: text("address"),
+  city: text("city"),
+  state: text("state"),
+  country: text("country"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+}, (table) => [
+  index("idx_company_name").on(table.companyName),
+  index("idx_company_industry").on(table.industry),
+  index("idx_company_user").on(table.userId),
+]);
+
+// Contacts - Centralized contact information
+export const contacts = pgTable("contacts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().default('default_user'),
+  companyId: varchar("company_id").references(() => companies.id, { onDelete: "set null" }),
+  firstName: text("first_name").notNull(),
+  lastName: text("last_name").notNull(),
+  email: text("email"),
+  phone: text("phone"),
+  jobTitle: text("job_title"),
+  department: text("department"),
+  leadSource: text("lead_source"), // 'referral', 'web', 'event', 'cold_outreach'
+  status: text("status").default('active'), // 'active', 'inactive', 'converted', 'lost'
+  customerType: text("customer_type"), // 'prospect', 'customer', 'partner'
+  lastContactDate: timestamp("last_contact_date"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+}, (table) => [
+  index("idx_contact_email").on(table.email),
+  index("idx_contact_company").on(table.companyId),
+  index("idx_contact_status").on(table.status),
+  index("idx_contact_user").on(table.userId),
+  index("idx_contact_name").on(table.lastName, table.firstName),
+  index("idx_last_contact_date").on(table.lastContactDate),
+]);
+
+// Projects - Project metadata and tracking
+export const projects = pgTable("projects", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().default('default_user'),
+  contactId: varchar("contact_id").references(() => contacts.id, { onDelete: "cascade" }),
+  companyId: varchar("company_id").references(() => companies.id, { onDelete: "cascade" }),
+  projectName: text("project_name").notNull(),
+  description: text("description"),
+  category: text("category"), // 'sales', 'support', 'partnership', 'internal'
+  projectValue: text("project_value"), // Monetary value if applicable
+  startDate: timestamp("start_date"),
+  endDate: timestamp("end_date"),
+  status: text("status").default('planning'), // 'planning', 'active', 'on_hold', 'completed', 'cancelled'
+  priority: text("priority").default('medium'), // 'low', 'medium', 'high', 'urgent'
+  ownerId: varchar("owner_id").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+}, (table) => [
+  index("idx_project_contact").on(table.contactId),
+  index("idx_project_company").on(table.companyId),
+  index("idx_project_status").on(table.status),
+  index("idx_project_owner").on(table.ownerId),
+  index("idx_project_dates").on(table.startDate, table.endDate),
+  index("idx_project_user").on(table.userId),
+]);
+
+// Communications - Emails, SMS, calls, meetings logged
+export const communications = pgTable("communications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().default('default_user'),
+  contactId: varchar("contact_id").notNull().references(() => contacts.id, { onDelete: "cascade" }),
+  projectId: varchar("project_id").references(() => projects.id, { onDelete: "set null" }),
+  communicationType: text("communication_type").notNull(), // 'email', 'sms', 'call', 'meeting', 'other'
+  direction: text("direction").notNull(), // 'inbound', 'outbound'
+  subject: text("subject"),
+  content: text("content"),
+  communicationDate: timestamp("communication_date").notNull().default(sql`now()`),
+  durationMinutes: integer("duration_minutes"), // For calls/meetings
+  outcome: text("outcome"), // 'successful', 'no_answer', 'follow_up_needed'
+  metadata: jsonb("metadata"), // Additional structured data (email headers, SMS delivery status, etc)
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+}, (table) => [
+  index("idx_comm_contact").on(table.contactId),
+  index("idx_comm_project").on(table.projectId),
+  index("idx_comm_type").on(table.communicationType),
+  index("idx_comm_date").on(table.communicationDate),
+  index("idx_comm_contact_date").on(table.contactId, table.communicationDate),
+  index("idx_comm_user").on(table.userId),
+]);
+
+// Research - Research summaries, sources, and insights
+export const research = pgTable("research", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().default('default_user'),
+  contactId: varchar("contact_id").references(() => contacts.id, { onDelete: "set null" }),
+  companyId: varchar("company_id").references(() => companies.id, { onDelete: "set null" }),
+  projectId: varchar("project_id").references(() => projects.id, { onDelete: "set null" }),
+  title: text("title").notNull(),
+  summary: text("summary").notNull(),
+  sources: text("sources").array(), // Array of URLs or references
+  findings: text("findings"), // Key insights
+  researchType: text("research_type"), // 'market', 'competitor', 'customer', 'technical'
+  tags: text("tags").array(),
+  isPinned: boolean("is_pinned").default(false),
+  agentSource: text("agent_source"), // Which agent generated this
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+}, (table) => [
+  index("idx_research_contact").on(table.contactId),
+  index("idx_research_company").on(table.companyId),
+  index("idx_research_project").on(table.projectId),
+  index("idx_research_type").on(table.researchType),
+  index("idx_research_created").on(table.createdAt),
+  index("idx_research_user").on(table.userId),
+]);
+
+// Insert schemas for new CRM tables
+export const insertCompanySchema = createInsertSchema(companies).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertContactSchema = createInsertSchema(contacts).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertProjectSchema = createInsertSchema(projects).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertCommunicationSchema = createInsertSchema(communications).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertResearchSchema = createInsertSchema(research).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// Types for CRM tables
+export type InsertCompany = z.infer<typeof insertCompanySchema>;
+export type Company = typeof companies.$inferSelect;
+export type InsertContact = z.infer<typeof insertContactSchema>;
+export type Contact = typeof contacts.$inferSelect;
+export type InsertProject = z.infer<typeof insertProjectSchema>;
+export type Project = typeof projects.$inferSelect;
+export type InsertCommunication = z.infer<typeof insertCommunicationSchema>;
+export type Communication = typeof communications.$inferSelect;
+export type InsertResearch = z.infer<typeof insertResearchSchema>;
+export type Research = typeof research.$inferSelect;
