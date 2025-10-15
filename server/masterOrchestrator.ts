@@ -18,6 +18,7 @@ export interface ExecutionPlan {
   toolsNeeded: string[];
   executionSteps: ExecutionStep[];
   estimatedDuration: string;
+  executionMode: 'sequential' | 'parallel' | 'mixed'; // Phase 3.1: Parallel execution support
 }
 
 export interface ExecutionStep {
@@ -81,19 +82,28 @@ Return a JSON object with this structure:
   "primaryAgent": "agent_id_that_leads",
   "collaboratingAgents": ["other_agents_if_needed"],
   "toolsNeeded": ["tools_required"],
+  "executionMode": "sequential|parallel|mixed",
   "executionSteps": [
     {
       "stepNumber": 1,
       "agent": "agent_id",
       "action": "what this agent will do",
       "toolsUsed": ["tools_for_this_step"],
-      "dependsOn": [previous_step_numbers]
+      "dependsOn": [previous_step_numbers_if_any]
     }
   ],
   "estimatedDuration": "time_estimate"
 }
 
-IMPORTANT: Only use agents and tools that are available to this user's tier.`;
+Execution Modes:
+- "sequential": Execute steps one at a time (use when steps must be in order)
+- "parallel": Execute all steps simultaneously (use when steps are completely independent)
+- "mixed": Automatically optimize - steps with dependencies run in sequence, independent steps run in parallel (RECOMMENDED)
+
+IMPORTANT: 
+- Only use agents and tools that are available to this user's tier
+- Set dependsOn array for steps that require previous steps' results
+- Leave dependsOn empty or omit it for independent steps`;
 
   const response = await openai.chat.completions.create({
     model: "gpt-4o-mini", // Using mini for cost-effective planning
@@ -114,11 +124,64 @@ IMPORTANT: Only use agents and tools that are available to this user's tier.`;
     toolsNeeded: planData.toolsNeeded || [],
     executionSteps: planData.executionSteps || [],
     estimatedDuration: planData.estimatedDuration || 'unknown',
+    executionMode: planData.executionMode || 'mixed', // Default to mixed (optimal)
   };
 
   console.log('📋 Execution Plan Created:', JSON.stringify(plan, null, 2));
   
   return plan;
+}
+
+/**
+ * Dependency Resolver - Groups steps by execution level for parallel execution
+ * Level 0: Steps with no dependencies
+ * Level 1: Steps depending only on Level 0
+ * Level 2: Steps depending on Level 0 or 1, etc.
+ */
+function resolveExecutionLevels(steps: ExecutionStep[]): ExecutionStep[][] {
+  const levels: ExecutionStep[][] = [];
+  const stepMap = new Map<number, ExecutionStep>();
+  const stepLevels = new Map<number, number>();
+  
+  // Build step map
+  steps.forEach(step => stepMap.set(step.stepNumber, step));
+  
+  // Calculate level for each step
+  function calculateLevel(step: ExecutionStep): number {
+    if (stepLevels.has(step.stepNumber)) {
+      return stepLevels.get(step.stepNumber)!;
+    }
+    
+    // If no dependencies, it's level 0
+    if (!step.dependsOn || step.dependsOn.length === 0) {
+      stepLevels.set(step.stepNumber, 0);
+      return 0;
+    }
+    
+    // Otherwise, level = max(dependency levels) + 1
+    const maxDepLevel = Math.max(...step.dependsOn.map(depNum => {
+      const depStep = stepMap.get(depNum);
+      return depStep ? calculateLevel(depStep) : 0;
+    }));
+    
+    const level = maxDepLevel + 1;
+    stepLevels.set(step.stepNumber, level);
+    return level;
+  }
+  
+  // Assign all steps to levels
+  steps.forEach(step => calculateLevel(step));
+  
+  // Group steps by level
+  const maxLevel = Math.max(...Array.from(stepLevels.values()));
+  for (let i = 0; i <= maxLevel; i++) {
+    const levelSteps = steps.filter(step => stepLevels.get(step.stepNumber) === i);
+    if (levelSteps.length > 0) {
+      levels.push(levelSteps);
+    }
+  }
+  
+  return levels;
 }
 
 /**
@@ -132,12 +195,13 @@ export async function executePlan(
   userTier: string = 'free'
 ): Promise<OrchestrationResult> {
   
-  console.log('🚀 Executing orchestration plan...');
+  console.log(`🚀 Executing orchestration plan (${plan.executionMode} mode)...`);
   
   const results: OrchestrationResult['results'] = [];
+  const resultsMap = new Map<number, OrchestrationResult['results'][0]>();
   
-  // Execute steps in order (respecting dependencies)
-  for (const step of plan.executionSteps) {
+  // Helper function to execute a single step
+  const executeStep = async (step: ExecutionStep): Promise<void> => {
     console.log(`  Step ${step.stepNumber}: ${step.agent} - ${step.action}`);
     
     // Check tool access
@@ -151,7 +215,12 @@ export async function executePlan(
     const agentConfig = AGENTS[step.agent];
     if (!agentConfig) {
       console.error(`❌ Unknown agent: ${step.agent}`);
-      continue;
+      resultsMap.set(step.stepNumber, {
+        agent: step.agent,
+        output: `Error: Unknown agent ${step.agent}`,
+        toolsUsed: step.toolsUsed,
+      });
+      return;
     }
     
     // Execute agent task
@@ -165,7 +234,7 @@ export async function executePlan(
       
       const output = agentResponse.choices[0].message.content || '';
       
-      results.push({
+      resultsMap.set(step.stepNumber, {
         agent: agentConfig.name,
         output,
         toolsUsed: step.toolsUsed,
@@ -175,13 +244,44 @@ export async function executePlan(
       
     } catch (error: any) {
       console.error(`  ❌ Step ${step.stepNumber} failed:`, error.message);
-      results.push({
+      resultsMap.set(step.stepNumber, {
         agent: agentConfig.name,
         output: `Error: ${error.message}`,
         toolsUsed: step.toolsUsed,
       });
     }
   }
+  
+  // Execute based on mode
+  if (plan.executionMode === 'sequential') {
+    // Sequential: Execute one at a time
+    for (const step of plan.executionSteps) {
+      await executeStep(step);
+    }
+  } else if (plan.executionMode === 'parallel') {
+    // Parallel: Execute all at once (ignoring dependencies)
+    await Promise.all(plan.executionSteps.map(step => executeStep(step)));
+  } else {
+    // Mixed (optimal): Respect dependencies, parallelize where possible
+    const executionLevels = resolveExecutionLevels(plan.executionSteps);
+    console.log(`  📊 Execution levels: ${executionLevels.map(level => level.length).join(' → ')}`);
+    
+    for (let i = 0; i < executionLevels.length; i++) {
+      const levelSteps = executionLevels[i];
+      console.log(`  🔄 Level ${i}: Executing ${levelSteps.length} step(s) in parallel`);
+      
+      // Execute all steps in this level in parallel
+      await Promise.all(levelSteps.map(step => executeStep(step)));
+    }
+  }
+  
+  // Sort results by step number
+  plan.executionSteps.forEach(step => {
+    const result = resultsMap.get(step.stepNumber);
+    if (result) {
+      results.push(result);
+    }
+  });
   
   // Compile final answer
   const compilationPrompt = `You are compiling results from multiple AI agents into a final answer.
@@ -263,12 +363,12 @@ export async function orchestrateStreaming(
     const plan = await analyzeAndPlan(userMessage, userId, userTier);
     onEvent({ type: 'plan', plan });
     
-    // Step 2: Execute steps with live updates
+    // Step 2: Execute steps with live updates (parallel execution)
     const results: any[] = [];
+    const resultsMap = new Map<number, any>();
     
-    for (let i = 0; i < plan.executionSteps.length; i++) {
-      const step = plan.executionSteps[i];
-      
+    // Helper function to execute a single step with SSE updates
+    const executeStepStreaming = async (step: ExecutionStep): Promise<void> => {
       // Notify step start
       onEvent({ 
         type: 'step_start', 
@@ -307,7 +407,7 @@ export async function orchestrateStreaming(
           toolsUsed: step.toolsUsed,
         };
         
-        results.push(result);
+        resultsMap.set(step.stepNumber, result);
         
         // Notify step completion
         onEvent({ 
@@ -323,13 +423,52 @@ export async function orchestrateStreaming(
           error: error.message 
         });
         
-        results.push({
+        resultsMap.set(step.stepNumber, {
           agent: AGENTS[step.agent]?.name || step.agent,
           output: `Error: ${error.message}`,
           toolsUsed: step.toolsUsed,
         });
       }
     }
+    
+    // Execute based on mode
+    onEvent({ type: 'status', message: `Executing in ${plan.executionMode} mode...` });
+    
+    if (plan.executionMode === 'sequential') {
+      // Sequential: Execute one at a time
+      for (const step of plan.executionSteps) {
+        await executeStepStreaming(step);
+      }
+    } else if (plan.executionMode === 'parallel') {
+      // Parallel: Execute all at once
+      await Promise.all(plan.executionSteps.map(step => executeStepStreaming(step)));
+    } else {
+      // Mixed (optimal): Respect dependencies, parallelize where possible
+      const executionLevels = resolveExecutionLevels(plan.executionSteps);
+      onEvent({ 
+        type: 'status', 
+        message: `${executionLevels.length} execution level(s): ${executionLevels.map(l => l.length).join(' → ')} step(s)` 
+      });
+      
+      for (let i = 0; i < executionLevels.length; i++) {
+        const levelSteps = executionLevels[i];
+        
+        if (levelSteps.length > 1) {
+          onEvent({ type: 'status', message: `Level ${i}: Executing ${levelSteps.length} agents in parallel` });
+        }
+        
+        // Execute all steps in this level in parallel
+        await Promise.all(levelSteps.map(step => executeStepStreaming(step)));
+      }
+    }
+    
+    // Sort results by step number
+    plan.executionSteps.forEach(step => {
+      const result = resultsMap.get(step.stepNumber);
+      if (result) {
+        results.push(result);
+      }
+    });
     
     // Step 3: Compile final answer
     onEvent({ type: 'status', message: 'Compiling results...' });
