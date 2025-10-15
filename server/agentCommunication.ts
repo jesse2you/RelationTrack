@@ -262,6 +262,11 @@ export async function delegateSubTask(
   }
 ): Promise<AgentMessageResponse> {
   
+  // Enforce conversationId to prevent orphaned messages
+  if (!conversationId) {
+    throw new Error('conversationId is required for agent task delegation');
+  }
+  
   console.log(`🔀 ${fromAgent} delegating ${taskType} task to ${toAgent}`);
   
   return await createAgentMessage({
