@@ -372,6 +372,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Orchestrate Stream - Real-time SSE streaming of orchestration progress
+  app.post("/api/orchestrate/stream", async (req, res) => {
+    const { message, userId = 'default_user', userTier = 'free' } = req.body;
+    
+    try {
+      // Set up SSE headers
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+      res.flushHeaders();
+      
+      // Create conversation
+      const conversation = await storage.createConversation({
+        title: `Orchestration: ${message.slice(0, 50)}${message.length > 50 ? '...' : ''}`
+      });
+      
+      // Send initial event
+      res.write(`data: ${JSON.stringify({ type: 'start', conversationId: conversation.id })}\n\n`);
+      
+      // Import orchestrator
+      const { orchestrateStreaming } = await import('./masterOrchestrator');
+      
+      // Execute with streaming callback
+      await orchestrateStreaming(message, conversation.id, userId, userTier, (event: any) => {
+        res.write(`data: ${JSON.stringify(event)}\n\n`);
+      });
+      
+      // Send completion
+      res.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`);
+      res.end();
+    } catch (error: any) {
+      console.error('Streaming orchestration error:', error);
+      res.write(`data: ${JSON.stringify({ type: 'error', error: error.message })}\n\n`);
+      res.end();
+    }
+  });
+
   // ============ CRM ROUTES - RelationTrack Features ============
   
   // Companies

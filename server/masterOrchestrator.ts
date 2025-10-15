@@ -245,3 +245,139 @@ export async function orchestrate(
   
   return result;
 }
+
+/**
+ * Streaming Orchestration - Real-time SSE updates during execution
+ */
+export async function orchestrateStreaming(
+  userMessage: string,
+  conversationId: string,
+  userId: string = 'default_user',
+  userTier: string = 'free',
+  onEvent: (event: any) => void
+): Promise<void> {
+  
+  try {
+    // Step 1: Analyze and create plan
+    onEvent({ type: 'status', message: 'Analyzing request...' });
+    const plan = await analyzeAndPlan(userMessage, userId, userTier);
+    onEvent({ type: 'plan', plan });
+    
+    // Step 2: Execute steps with live updates
+    const results: any[] = [];
+    
+    for (let i = 0; i < plan.executionSteps.length; i++) {
+      const step = plan.executionSteps[i];
+      
+      // Notify step start
+      onEvent({ 
+        type: 'step_start', 
+        stepNumber: step.stepNumber,
+        agent: step.agent,
+        action: step.action 
+      });
+      
+      try {
+        // Check tool access
+        for (const tool of step.toolsUsed) {
+          if (!hasToolAccess(userTier, tool)) {
+            throw new Error(`Tool ${tool} not available in ${userTier} tier. Upgrade to access this feature.`);
+          }
+        }
+        
+        // Get agent configuration
+        const agentConfig = AGENTS[step.agent];
+        if (!agentConfig) {
+          throw new Error(`Unknown agent: ${step.agent}`);
+        }
+        
+        // Execute agent task
+        const agentResponse = await generateAgentResponse(
+          step.agent as any,
+          [{ role: "user", content: step.action }],
+          false,
+          userId
+        );
+        
+        const output = agentResponse.choices[0].message.content || '';
+        
+        const result = {
+          agent: agentConfig.name,
+          output,
+          toolsUsed: step.toolsUsed,
+        };
+        
+        results.push(result);
+        
+        // Notify step completion
+        onEvent({ 
+          type: 'step_complete', 
+          stepNumber: step.stepNumber,
+          result 
+        });
+        
+      } catch (error: any) {
+        onEvent({ 
+          type: 'step_error', 
+          stepNumber: step.stepNumber,
+          error: error.message 
+        });
+        
+        results.push({
+          agent: AGENTS[step.agent]?.name || step.agent,
+          output: `Error: ${error.message}`,
+          toolsUsed: step.toolsUsed,
+        });
+      }
+    }
+    
+    // Step 3: Compile final answer
+    onEvent({ type: 'status', message: 'Compiling results...' });
+    
+    const compilationPrompt = `You are compiling results from multiple AI agents into a final answer.
+
+User's Original Question: "${userMessage}"
+
+Agent Results:
+${results.map((r, i) => `${i + 1}. ${r.agent}:\n${r.output}`).join('\n\n')}
+
+Create a comprehensive, well-organized final answer that:
+1. Directly answers the user's question
+2. Integrates insights from all agents
+3. Is clear and actionable
+4. Credits agents when relevant
+
+Final Answer:`;
+
+    const finalResponse = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [{ role: "user", content: compilationPrompt }],
+      temperature: 0.7,
+    });
+
+    const finalAnswer = finalResponse.choices[0].message.content || 'Unable to compile results';
+    
+    // Step 4: Send final result
+    onEvent({ 
+      type: 'complete',
+      finalAnswer,
+      success: true,
+      plan,
+      results 
+    });
+    
+    // Step 5: Log orchestration
+    await storage.createAgentInteraction({
+      userId,
+      conversationId,
+      primaryAgent: plan.primaryAgent,
+      collaboratingAgents: plan.collaboratingAgents,
+      interactionType: 'collaborative',
+      outcome: `Orchestrated: ${plan.executionSteps.length} steps completed`
+    });
+    
+  } catch (error: any) {
+    onEvent({ type: 'error', error: error.message });
+    throw error;
+  }
+}
