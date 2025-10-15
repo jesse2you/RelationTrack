@@ -503,14 +503,14 @@ export default function CRM() {
             <div className="grid gap-2">
               <Label htmlFor="company">Company</Label>
               <Select 
-                value={contactForm.companyId} 
-                onValueChange={(value) => setContactForm({ ...contactForm, companyId: value })}
+                value={contactForm.companyId || "none"} 
+                onValueChange={(value) => setContactForm({ ...contactForm, companyId: value === "none" ? "" : value })}
               >
                 <SelectTrigger data-testid="select-company">
                   <SelectValue placeholder="Select company" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">None</SelectItem>
+                  <SelectItem value="none">None</SelectItem>
                   {companies.map((company) => (
                     <SelectItem key={company.id} value={company.id}>
                       {company.companyName}
