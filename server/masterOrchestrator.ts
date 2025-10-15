@@ -137,40 +137,82 @@ IMPORTANT:
  * Level 0: Steps with no dependencies
  * Level 1: Steps depending only on Level 0
  * Level 2: Steps depending on Level 0 or 1, etc.
+ * 
+ * Includes cycle detection and dependency validation
  */
 function resolveExecutionLevels(steps: ExecutionStep[]): ExecutionStep[][] {
   const levels: ExecutionStep[][] = [];
   const stepMap = new Map<number, ExecutionStep>();
   const stepLevels = new Map<number, number>();
+  const visiting = new Set<number>(); // For cycle detection
+  const visited = new Set<number>(); // For cycle detection
   
   // Build step map
   steps.forEach(step => stepMap.set(step.stepNumber, step));
   
-  // Calculate level for each step
-  function calculateLevel(step: ExecutionStep): number {
+  // Validate all dependencies exist
+  for (const step of steps) {
+    if (step.dependsOn && step.dependsOn.length > 0) {
+      for (const depNum of step.dependsOn) {
+        if (!stepMap.has(depNum)) {
+          throw new Error(
+            `Invalid dependency: Step ${step.stepNumber} depends on non-existent step ${depNum}. ` +
+            `Available steps: ${Array.from(stepMap.keys()).join(', ')}`
+          );
+        }
+        if (depNum === step.stepNumber) {
+          throw new Error(`Invalid dependency: Step ${step.stepNumber} cannot depend on itself`);
+        }
+      }
+    }
+  }
+  
+  // Calculate level for each step with cycle detection
+  function calculateLevel(step: ExecutionStep, path: number[] = []): number {
+    // Already calculated
     if (stepLevels.has(step.stepNumber)) {
       return stepLevels.get(step.stepNumber)!;
     }
     
+    // Cycle detection: Currently visiting this node
+    if (visiting.has(step.stepNumber)) {
+      const cyclePath = [...path, step.stepNumber].join(' → ');
+      throw new Error(
+        `Dependency cycle detected: ${cyclePath}. ` +
+        `Cannot execute steps with circular dependencies.`
+      );
+    }
+    
+    // Mark as visiting
+    visiting.add(step.stepNumber);
+    
     // If no dependencies, it's level 0
     if (!step.dependsOn || step.dependsOn.length === 0) {
       stepLevels.set(step.stepNumber, 0);
+      visiting.delete(step.stepNumber);
+      visited.add(step.stepNumber);
       return 0;
     }
     
-    // Otherwise, level = max(dependency levels) + 1
+    // Calculate level = max(dependency levels) + 1
     const maxDepLevel = Math.max(...step.dependsOn.map(depNum => {
-      const depStep = stepMap.get(depNum);
-      return depStep ? calculateLevel(depStep) : 0;
+      const depStep = stepMap.get(depNum)!; // Safe because we validated above
+      return calculateLevel(depStep, [...path, step.stepNumber]);
     }));
     
     const level = maxDepLevel + 1;
     stepLevels.set(step.stepNumber, level);
+    visiting.delete(step.stepNumber);
+    visited.add(step.stepNumber);
     return level;
   }
   
   // Assign all steps to levels
-  steps.forEach(step => calculateLevel(step));
+  for (const step of steps) {
+    if (!visited.has(step.stepNumber)) {
+      calculateLevel(step);
+    }
+  }
   
   // Group steps by level
   const maxLevel = Math.max(...Array.from(stepLevels.values()));
