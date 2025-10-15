@@ -397,6 +397,29 @@ export const research = pgTable("research", {
   index("idx_research_user").on(table.userId),
 ]);
 
+// Phase 3.2: Agent-to-Agent Communication
+export const agentMessages = pgTable("agent_messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  conversationId: varchar("conversation_id").references(() => conversations.id, { onDelete: "cascade" }),
+  fromAgent: text("from_agent").notNull(), // Agent ID sending the message
+  toAgent: text("to_agent").notNull(), // Agent ID receiving the message
+  taskType: text("task_type").notNull(), // 'research', 'analysis', 'learning', 'task_creation'
+  taskData: jsonb("task_data").notNull(), // Task details and context
+  status: text("status").notNull().default('pending'), // 'pending' | 'in_progress' | 'completed' | 'failed'
+  result: text("result"), // Task result when completed
+  error: text("error"), // Error message if failed
+  priority: integer("priority").default(1), // 1-5, higher = more urgent
+  parentStepNumber: integer("parent_step_number"), // Which orchestration step created this
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  completedAt: timestamp("completed_at"),
+}, (table) => [
+  index("idx_agent_msg_conversation").on(table.conversationId),
+  index("idx_agent_msg_from").on(table.fromAgent),
+  index("idx_agent_msg_to").on(table.toAgent),
+  index("idx_agent_msg_status").on(table.status),
+  index("idx_agent_msg_created").on(table.createdAt),
+]);
+
 // Insert schemas for new CRM tables
 export const insertCompanySchema = createInsertSchema(companies).omit({
   id: true,
@@ -438,3 +461,13 @@ export type InsertCommunication = z.infer<typeof insertCommunicationSchema>;
 export type Communication = typeof communications.$inferSelect;
 export type InsertResearch = z.infer<typeof insertResearchSchema>;
 export type Research = typeof research.$inferSelect;
+
+// Phase 3.2: Agent Messages
+export const insertAgentMessageSchema = createInsertSchema(agentMessages).omit({
+  id: true,
+  createdAt: true,
+  completedAt: true,
+});
+
+export type InsertAgentMessage = z.infer<typeof insertAgentMessageSchema>;
+export type AgentMessage = typeof agentMessages.$inferSelect;
