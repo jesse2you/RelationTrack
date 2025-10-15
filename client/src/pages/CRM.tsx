@@ -57,6 +57,17 @@ export default function CRM() {
     firstName: "", lastName: "", email: "", phone: "", jobTitle: "", department: "", 
     companyId: "", status: "active", customerType: "", notes: ""
   });
+  const [projectForm, setProjectForm] = useState({
+    projectName: "", description: "", category: "", status: "planning", priority: "medium", 
+    contactId: "", companyId: ""
+  });
+  const [commForm, setCommForm] = useState({
+    contactId: "", projectId: "", communicationType: "email", direction: "outbound", 
+    subject: "", content: ""
+  });
+  const [researchForm, setResearchForm] = useState({
+    title: "", summary: "", researchType: "", contactId: "", companyId: "", projectId: ""
+  });
 
   // Fetch data
   const { data: companies = [] } = useQuery<Company[]>({ queryKey: ["/api/companies"] });
@@ -146,6 +157,66 @@ export default function CRM() {
     },
   });
 
+  // Project mutations
+  const createProjectMutation = useMutation({
+    mutationFn: (data: any) => apiRequest("POST", "/api/projects", data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
+      toast({ title: "Project created successfully" });
+      setProjectDialog({ open: false, mode: "create", data: null });
+      setProjectForm({ projectName: "", description: "", category: "", status: "planning", priority: "medium", contactId: "", companyId: "" });
+    },
+  });
+
+  const updateProjectMutation = useMutation({
+    mutationFn: ({ id, ...data }: any) => apiRequest("PATCH", `/api/projects/${id}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
+      toast({ title: "Project updated successfully" });
+      setProjectDialog({ open: false, mode: "create", data: null });
+    },
+  });
+
+  // Communication mutations
+  const createCommMutation = useMutation({
+    mutationFn: (data: any) => apiRequest("POST", "/api/communications", data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/communications"] });
+      toast({ title: "Communication logged successfully" });
+      setCommDialog({ open: false, mode: "create", data: null });
+      setCommForm({ contactId: "", projectId: "", communicationType: "email", direction: "outbound", subject: "", content: "" });
+    },
+  });
+
+  const updateCommMutation = useMutation({
+    mutationFn: ({ id, ...data }: any) => apiRequest("PATCH", `/api/communications/${id}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/communications"] });
+      toast({ title: "Communication updated successfully" });
+      setCommDialog({ open: false, mode: "create", data: null });
+    },
+  });
+
+  // Research mutations
+  const createResearchMutation = useMutation({
+    mutationFn: (data: any) => apiRequest("POST", "/api/research", data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/research"] });
+      toast({ title: "Research created successfully" });
+      setResearchDialog({ open: false, mode: "create", data: null });
+      setResearchForm({ title: "", summary: "", researchType: "", contactId: "", companyId: "", projectId: "" });
+    },
+  });
+
+  const updateResearchMutation = useMutation({
+    mutationFn: ({ id, ...data }: any) => apiRequest("PATCH", `/api/research/${id}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/research"] });
+      toast({ title: "Research updated successfully" });
+      setResearchDialog({ open: false, mode: "create", data: null });
+    },
+  });
+
   // Handle company form
   const handleCompanySubmit = () => {
     if (companyDialog.mode === "create") {
@@ -161,6 +232,49 @@ export default function CRM() {
       createContactMutation.mutate({ ...contactForm, companyId: contactForm.companyId || null });
     } else if (contactDialog.data) {
       updateContactMutation.mutate({ id: contactDialog.data.id, ...contactForm, companyId: contactForm.companyId || null });
+    }
+  };
+
+  // Handle project form
+  const handleProjectSubmit = () => {
+    const data = {
+      ...projectForm,
+      contactId: projectForm.contactId || null,
+      companyId: projectForm.companyId || null
+    };
+    if (projectDialog.mode === "create") {
+      createProjectMutation.mutate(data);
+    } else if (projectDialog.data) {
+      updateProjectMutation.mutate({ id: projectDialog.data.id, ...data });
+    }
+  };
+
+  // Handle communication form
+  const handleCommSubmit = () => {
+    const data = {
+      ...commForm,
+      contactId: commForm.contactId || null,
+      projectId: commForm.projectId || null
+    };
+    if (commDialog.mode === "create") {
+      createCommMutation.mutate(data);
+    } else if (commDialog.data) {
+      updateCommMutation.mutate({ id: commDialog.data.id, ...data });
+    }
+  };
+
+  // Handle research form
+  const handleResearchSubmit = () => {
+    const data = {
+      ...researchForm,
+      contactId: researchForm.contactId || null,
+      companyId: researchForm.companyId || null,
+      projectId: researchForm.projectId || null
+    };
+    if (researchDialog.mode === "create") {
+      createResearchMutation.mutate(data);
+    } else if (researchDialog.data) {
+      updateResearchMutation.mutate({ id: researchDialog.data.id, ...data });
     }
   };
 
@@ -351,15 +465,192 @@ export default function CRM() {
           </div>
         </TabsContent>
 
-        {/* Projects, Communications, Research tabs - simplified for now */}
-        <TabsContent value="projects">
-          <p className="text-muted-foreground">Projects list - forms coming next</p>
+        {/* Projects Tab */}
+        <TabsContent value="projects" className="space-y-4">
+          <div className="flex justify-between items-center">
+            <h2 className="text-xl font-semibold">Projects ({projects.length})</h2>
+            <Button 
+              onClick={() => {
+                setProjectForm({ projectName: "", description: "", category: "", status: "planning", priority: "medium", contactId: "", companyId: "" });
+                setProjectDialog({ open: true, mode: "create", data: null });
+              }}
+              data-testid="button-add-project"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Add Project
+            </Button>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {projects.map((project) => (
+              <Card key={project.id} data-testid={`card-project-${project.id}`}>
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between">
+                    <span className="truncate">{project.projectName}</span>
+                    <div className="flex gap-2">
+                      <Button 
+                        size="icon" 
+                        variant="ghost"
+                        onClick={() => {
+                          setProjectForm({
+                            projectName: project.projectName,
+                            description: project.description || "",
+                            category: project.category || "",
+                            status: project.status || "planning",
+                            priority: project.priority || "medium",
+                            contactId: project.contactId || "",
+                            companyId: project.companyId || ""
+                          });
+                          setProjectDialog({ open: true, mode: "edit", data: project });
+                        }}
+                        data-testid={`button-edit-project-${project.id}`}
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => deleteProjectMutation.mutate(project.id)}
+                        data-testid={`button-delete-project-${project.id}`}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </CardTitle>
+                  <CardDescription>{project.status} • {project.priority}</CardDescription>
+                </CardHeader>
+                {project.description && (
+                  <CardContent>
+                    <p className="text-sm text-muted-foreground line-clamp-2">{project.description}</p>
+                  </CardContent>
+                )}
+              </Card>
+            ))}
+          </div>
         </TabsContent>
-        <TabsContent value="communications">
-          <p className="text-muted-foreground">Communications list - forms coming next</p>
+
+        {/* Communications Tab */}
+        <TabsContent value="communications" className="space-y-4">
+          <div className="flex justify-between items-center">
+            <h2 className="text-xl font-semibold">Communications ({communications.length})</h2>
+            <Button 
+              onClick={() => {
+                setCommForm({ contactId: "", projectId: "", communicationType: "email", direction: "outbound", subject: "", content: "" });
+                setCommDialog({ open: true, mode: "create", data: null });
+              }}
+              data-testid="button-add-communication"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Log Communication
+            </Button>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {communications.map((comm) => {
+              const contact = contacts.find(c => c.id === comm.contactId);
+              return (
+                <Card key={comm.id} data-testid={`card-communication-${comm.id}`}>
+                  <CardHeader>
+                    <CardTitle className="flex items-center justify-between">
+                      <span className="truncate">{comm.communicationType}</span>
+                      <div className="flex gap-2">
+                        <Button 
+                          size="icon" 
+                          variant="ghost"
+                          onClick={() => {
+                            setCommForm({
+                              contactId: comm.contactId || "",
+                              projectId: comm.projectId || "",
+                              communicationType: comm.communicationType,
+                              direction: comm.direction,
+                              subject: comm.subject || "",
+                              content: comm.content || ""
+                            });
+                            setCommDialog({ open: true, mode: "edit", data: comm });
+                          }}
+                          data-testid={`button-edit-communication-${comm.id}`}
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => deleteCommMutation.mutate(comm.id)}
+                          data-testid={`button-delete-communication-${comm.id}`}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </CardTitle>
+                    <CardDescription>{contact ? `${contact.firstName} ${contact.lastName}` : 'Unknown'} • {comm.direction}</CardDescription>
+                  </CardHeader>
+                  {comm.subject && (
+                    <CardContent>
+                      <p className="text-sm font-medium">{comm.subject}</p>
+                    </CardContent>
+                  )}
+                </Card>
+              );
+            })}
+          </div>
         </TabsContent>
-        <TabsContent value="research">
-          <p className="text-muted-foreground">Research list - forms coming next</p>
+
+        {/* Research Tab */}
+        <TabsContent value="research" className="space-y-4">
+          <div className="flex justify-between items-center">
+            <h2 className="text-xl font-semibold">Research ({research.length})</h2>
+            <Button 
+              onClick={() => {
+                setResearchForm({ title: "", summary: "", researchType: "", contactId: "", companyId: "", projectId: "" });
+                setResearchDialog({ open: true, mode: "create", data: null });
+              }}
+              data-testid="button-add-research"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Add Research
+            </Button>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {research.map((item) => (
+              <Card key={item.id} data-testid={`card-research-${item.id}`}>
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between">
+                    <span className="truncate">{item.title}</span>
+                    <div className="flex gap-2">
+                      <Button 
+                        size="icon" 
+                        variant="ghost"
+                        onClick={() => {
+                          setResearchForm({
+                            title: item.title,
+                            summary: item.summary,
+                            researchType: item.researchType || "",
+                            contactId: item.contactId || "",
+                            companyId: item.companyId || "",
+                            projectId: item.projectId || ""
+                          });
+                          setResearchDialog({ open: true, mode: "edit", data: item });
+                        }}
+                        data-testid={`button-edit-research-${item.id}`}
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => deleteResearchMutation.mutate(item.id)}
+                        data-testid={`button-delete-research-${item.id}`}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </CardTitle>
+                  {item.researchType && <CardDescription>{item.researchType}</CardDescription>}
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground line-clamp-2">{item.summary}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         </TabsContent>
       </Tabs>
 
@@ -562,6 +853,239 @@ export default function CRM() {
             </Button>
             <Button onClick={handleContactSubmit} data-testid="button-save-contact">
               {contactDialog.mode === "create" ? "Create" : "Update"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Project Dialog */}
+      <Dialog open={projectDialog.open} onOpenChange={(open) => setProjectDialog({ ...projectDialog, open })}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{projectDialog.mode === "create" ? "Add Project" : "Edit Project"}</DialogTitle>
+            <DialogDescription>{projectDialog.mode === "create" ? "Create a new project" : "Update project information"}</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="projectName">Project Name *</Label>
+              <Input
+                id="projectName"
+                value={projectForm.projectName}
+                onChange={(e) => setProjectForm({ ...projectForm, projectName: e.target.value })}
+                data-testid="input-project-name"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="description">Description</Label>
+              <Textarea
+                id="description"
+                value={projectForm.description}
+                onChange={(e) => setProjectForm({ ...projectForm, description: e.target.value })}
+                data-testid="input-project-description"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="projectCompany">Company</Label>
+                <Select 
+                  value={projectForm.companyId || "none"} 
+                  onValueChange={(value) => setProjectForm({ ...projectForm, companyId: value === "none" ? "" : value })}
+                >
+                  <SelectTrigger data-testid="select-project-company">
+                    <SelectValue placeholder="Select company" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None</SelectItem>
+                    {companies.map((company) => (
+                      <SelectItem key={company.id} value={company.id}>{company.companyName}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="priority">Priority</Label>
+                <Select 
+                  value={projectForm.priority} 
+                  onValueChange={(value) => setProjectForm({ ...projectForm, priority: value })}
+                >
+                  <SelectTrigger data-testid="select-priority">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="low">Low</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="high">High</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setProjectDialog({ open: false, mode: "create", data: null })}>Cancel</Button>
+            <Button onClick={handleProjectSubmit} data-testid="button-save-project">
+              {projectDialog.mode === "create" ? "Create" : "Update"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Communication Dialog */}
+      <Dialog open={commDialog.open} onOpenChange={(open) => setCommDialog({ ...commDialog, open })}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{commDialog.mode === "create" ? "Log Communication" : "Edit Communication"}</DialogTitle>
+            <DialogDescription>{commDialog.mode === "create" ? "Record a communication with a contact" : "Update communication details"}</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="commContact">Contact *</Label>
+              <Select 
+                value={commForm.contactId || "none"} 
+                onValueChange={(value) => setCommForm({ ...commForm, contactId: value === "none" ? "" : value })}
+              >
+                <SelectTrigger data-testid="select-comm-contact">
+                  <SelectValue placeholder="Select contact" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Select contact</SelectItem>
+                  {contacts.map((contact) => (
+                    <SelectItem key={contact.id} value={contact.id}>
+                      {contact.firstName} {contact.lastName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="commType">Type *</Label>
+                <Select 
+                  value={commForm.communicationType} 
+                  onValueChange={(value) => setCommForm({ ...commForm, communicationType: value })}
+                >
+                  <SelectTrigger data-testid="select-comm-type">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="email">Email</SelectItem>
+                    <SelectItem value="call">Call</SelectItem>
+                    <SelectItem value="meeting">Meeting</SelectItem>
+                    <SelectItem value="sms">SMS</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="direction">Direction *</Label>
+                <Select 
+                  value={commForm.direction} 
+                  onValueChange={(value) => setCommForm({ ...commForm, direction: value })}
+                >
+                  <SelectTrigger data-testid="select-direction">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="inbound">Inbound</SelectItem>
+                    <SelectItem value="outbound">Outbound</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="subject">Subject</Label>
+              <Input
+                id="subject"
+                value={commForm.subject}
+                onChange={(e) => setCommForm({ ...commForm, subject: e.target.value })}
+                data-testid="input-comm-subject"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="content">Notes</Label>
+              <Textarea
+                id="content"
+                value={commForm.content}
+                onChange={(e) => setCommForm({ ...commForm, content: e.target.value })}
+                data-testid="input-comm-content"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCommDialog({ open: false, mode: "create", data: null })}>Cancel</Button>
+            <Button onClick={handleCommSubmit} data-testid="button-save-communication">
+              {commDialog.mode === "create" ? "Log" : "Update"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Research Dialog */}
+      <Dialog open={researchDialog.open} onOpenChange={(open) => setResearchDialog({ ...researchDialog, open })}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{researchDialog.mode === "create" ? "Add Research" : "Edit Research"}</DialogTitle>
+            <DialogDescription>{researchDialog.mode === "create" ? "Save research findings and insights" : "Update research information"}</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="researchTitle">Title *</Label>
+              <Input
+                id="researchTitle"
+                value={researchForm.title}
+                onChange={(e) => setResearchForm({ ...researchForm, title: e.target.value })}
+                data-testid="input-research-title"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="researchSummary">Summary *</Label>
+              <Textarea
+                id="researchSummary"
+                value={researchForm.summary}
+                onChange={(e) => setResearchForm({ ...researchForm, summary: e.target.value })}
+                data-testid="input-research-summary"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="researchType">Type</Label>
+                <Select 
+                  value={researchForm.researchType || "none"} 
+                  onValueChange={(value) => setResearchForm({ ...researchForm, researchType: value === "none" ? "" : value })}
+                >
+                  <SelectTrigger data-testid="select-research-type">
+                    <SelectValue placeholder="Select type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None</SelectItem>
+                    <SelectItem value="market">Market</SelectItem>
+                    <SelectItem value="competitor">Competitor</SelectItem>
+                    <SelectItem value="customer">Customer</SelectItem>
+                    <SelectItem value="technical">Technical</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="researchCompany">Company</Label>
+                <Select 
+                  value={researchForm.companyId || "none"} 
+                  onValueChange={(value) => setResearchForm({ ...researchForm, companyId: value === "none" ? "" : value })}
+                >
+                  <SelectTrigger data-testid="select-research-company">
+                    <SelectValue placeholder="Select company" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None</SelectItem>
+                    {companies.map((company) => (
+                      <SelectItem key={company.id} value={company.id}>{company.companyName}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setResearchDialog({ open: false, mode: "create", data: null })}>Cancel</Button>
+            <Button onClick={handleResearchSubmit} data-testid="button-save-research">
+              {researchDialog.mode === "create" ? "Save" : "Update"}
             </Button>
           </DialogFooter>
         </DialogContent>
