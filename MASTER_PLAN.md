@@ -2,6 +2,8 @@
 
 **⚠️ CRITICAL: Read this file FIRST in every new AI session**
 
+**Last Updated:** October 15, 2025
+
 ---
 
 ## 📖 Essential Reading (In Order)
@@ -28,9 +30,9 @@
 
 ---
 
-## ✅ Current Implementation Status
+## ✅ Current Implementation Status (UPDATED)
 
-### **Core Infrastructure (Complete)**
+### **Phase 1: Core Infrastructure (COMPLETE)** ✅
 - ✅ 5 AI Agents: Learning Coach, Research Agent, Task Manager, Teaching Assistant, Head Coordinator
 - ✅ Master Orchestrator (`server/masterOrchestrator.ts`)
 - ✅ Agent routing & coordination (`server/agentCoordinator.ts`)
@@ -40,7 +42,7 @@
 - ✅ Authentication (Replit Auth)
 - ✅ Mobile-responsive UI
 
-### **Features Working**
+### **Phase 1: Features Working** ✅
 - ✅ Multi-agent chat interface
 - ✅ Keyword-based agent routing
 - ✅ Streaming AI responses
@@ -49,109 +51,306 @@
 - ✅ Agent interaction logging
 - ✅ Admin dashboard
 
-### **CRM System (90% Complete)**
+### **Phase 1: CRM System (COMPLETE)** ✅
 - ✅ Database: 5 tables (companies, contacts, projects, communications, research)
 - ✅ Backend: 30+ API endpoints with full CRUD
 - ✅ Storage layer: 25+ database methods
-- ✅ Frontend: Dashboard with read/delete functionality
-- ⚠️ **MISSING: Create/Edit forms** (architect flagged this - IN PROGRESS)
+- ✅ Frontend: Complete dashboard with create/edit/delete functionality
+- ✅ Full CRUD operations for all 5 entity types
+- ✅ Dialog-based forms with validation
+- ✅ Error handling on all mutations
+- ✅ Architect-approved and tested
+- 🎉 **STATUS: PRODUCTION READY**
+
+### **Phase 2: Visual Orchestration Dashboard (CODE COMPLETE)** ⚠️
+- ✅ Real-time agent status cards (5 agents with Active/Idle indicators)
+- ✅ Execution timeline with progressive rendering
+- ✅ SSE streaming backend: `orchestrateStreaming()` function
+- ✅ SSE endpoint: `POST /api/orchestrate/stream`
+- ✅ Frontend SSE consumer using fetch().body.getReader()
+- ✅ Agent activity animations (pulse effects, color transitions)
+- ✅ Live status bar with progress messages
+- ⚠️ **BLOCKED:** Needs app restart to register new SSE route
+- 📝 **FILES MODIFIED:** 
+  - `server/routes.ts` - Added SSE streaming endpoint
+  - `server/masterOrchestrator.ts` - Added `orchestrateStreaming()` function
+  - `client/src/pages/Orchestration.tsx` - Rebuilt with SSE consumer
 
 ---
 
-## 🚧 Current Priority (DO THIS FIRST)
+## 🚨 CRITICAL ISSUES (Must Fix First)
 
-### **1. Complete CRM Forms (URGENT)**
-**File:** `client/src/pages/CRM.tsx`
+### **Issue #1: Server Stability - APP RESTART REQUIRED** 🔥
 
-**Problem:** All "Add..." buttons exist but have NO onClick handlers or forms. No way to create/update entities.
+**Problem:** Server repeatedly disconnecting (see logs: "server connection lost. Polling for restart...")
 
-**Fix Required:**
-- [ ] Add dialog state for each entity type (companies, contacts, projects, communications, research)
-- [ ] Create forms with proper fields and validation
-- [ ] Wire up create mutations (POST requests)
-- [ ] Wire up edit mutations (PATCH requests)
-- [ ] Add success/error handling
-- [ ] Test full CRUD flow
+**Impact:**
+- New SSE endpoint `/api/orchestrate/stream` returns Vite HTML instead of SSE stream
+- Cannot test real-time orchestration
+- Visual dashboard non-functional
 
-**Expected Outcome:** Users can create, read, update, delete all CRM entities through the UI.
+**Root Cause:**
+- No workflow configured in Replit
+- New routes require manual app restart to register
 
----
+**FIX REQUIRED:**
+1. Click **"Run" button in Replit** to restart the app
+2. This will register the new `/api/orchestrate/stream` route
+3. Enable SSE streaming for real-time orchestration
 
-## 🎯 Phase 2: Visual Orchestration Dashboard (NEXT)
-
-### **Goal:** Show users their AI army at work
-
-**What to Build:**
-1. **Real-time Orchestration View** (`/orchestrate`)
-   - Current: Basic interface exists
-   - Needed: Visual workflow showing agent delegation
-   - Display: Which agents are active, what they're working on
-   - Progress: Real-time status updates
-
-2. **Agent Status Cards**
-   - Show: Active/Idle status for each agent
-   - Display: Current tasks assigned
-   - Log: Recent completions
-
-3. **Execution Timeline**
-   - Visual: Request → Analysis → Delegation → Execution → Results
-   - Real-time: Stream updates as agents work
-   - History: Past orchestrations
-
-**Files to Modify:**
-- `client/src/pages/Orchestration.tsx` - Enhance with visual workflow
-- `server/masterOrchestrator.ts` - Add status streaming
-- `shared/schema.ts` - Add orchestration_status table if needed
+**Alternative Fix:**
+- Configure workflow: Set up `npm run dev` as startup command in Replit
 
 ---
 
-## 🎯 Phase 3: Autonomous Multi-Step Workflows
+## 🎯 CURRENT PRIORITIES (In Order)
 
-### **Goal:** Agents work without user intervention
+### **Priority 1: Fix Server & Test Phase 2** 🔥
+**Status:** BLOCKED - Needs user action (app restart)
 
-**What to Build:**
-1. **Task Chaining**
-   - Master creates multi-step plans
-   - Agents execute sequentially or in parallel
-   - Results feed into next agent's context
+**Actions:**
+1. ✅ Code complete (SSE streaming fully implemented)
+2. ⏳ **USER ACTION NEEDED:** Click "Run" in Replit to restart app
+3. ⏳ Test SSE streaming orchestration end-to-end
+4. ⏳ Verify real-time agent status updates
+5. ⏳ Mark Phase 2 as fully complete
 
-2. **Self-Organizing Behavior**
-   - Agents can create sub-tasks for other agents
-   - Automatic retry/fallback on failure
-   - Smart dependency resolution
+**Expected Result:** `/orchestrate` page shows live agent activity, progressive execution timeline, and real-time status updates
 
-3. **Background Execution**
-   - "Fire & forget" mode for long-running tasks
-   - Notify user when complete
-   - Results stored in database
+---
+
+### **Priority 2: Phase 3 - Autonomous Multi-Step Workflows** 🤖
+
+**Goal:** Enable true autonomous execution where agents work without user intervention
+
+#### **3.1 Parallel Agent Execution**
+**What:** Multiple agents execute simultaneously instead of sequentially
 
 **Implementation:**
-- Enhance `server/masterOrchestrator.ts` with workflow engine
-- Add task dependency graph
-- Implement agent-to-agent communication protocol
+```typescript
+// server/masterOrchestrator.ts
+- Modify executePlan() to support parallel execution
+- Add execution mode: 'sequential' | 'parallel' | 'mixed'
+- Use Promise.all() for parallel agent tasks
+- Handle partial failures gracefully
+```
+
+**Files to Modify:**
+- `server/masterOrchestrator.ts` - Add parallel execution logic
+- `shared/schema.ts` - Add execution mode to ExecutionStep type
+
+**Expected Outcome:**
+- User request: "Research AI trends AND create a summary"
+- Research Agent and Teaching Assistant execute in parallel
+- Results compile when both complete
+- 2x faster execution for independent tasks
 
 ---
 
-## 🎯 Phase 4: Premium Features (Future)
+#### **3.2 Agent-to-Agent Communication**
+**What:** Agents can create sub-tasks for other agents mid-execution
 
-### **Tier-Gated Capabilities**
+**Implementation:**
+```typescript
+// New file: server/agentCommunication.ts
+- createSubTask(fromAgent, toAgent, task) function
+- Agent messaging queue
+- Task dependency tracking
+- Result passing between agents
+```
+
+**Database Schema Addition:**
+```typescript
+// shared/schema.ts
+agent_messages {
+  id: varchar
+  fromAgent: string
+  toAgent: string
+  taskType: string
+  taskData: json
+  status: 'pending' | 'in_progress' | 'completed'
+  result: text
+  createdAt: timestamp
+}
+```
+
+**Files to Create/Modify:**
+- `server/agentCommunication.ts` - New file for agent messaging
+- `shared/schema.ts` - Add agent_messages table
+- `server/masterOrchestrator.ts` - Integrate agent communication
+
+**Expected Outcome:**
+- Learning Coach analyzing a topic → creates sub-task for Research Agent
+- Research Agent completes research → sends results back
+- Learning Coach uses research to enhance learning plan
+- True collaborative autonomous behavior
+
+---
+
+#### **3.3 Background Task Execution**
+**What:** "Fire & forget" mode for long-running orchestrations
+
+**Implementation:**
+```typescript
+// New file: server/taskQueue.ts
+- Job queue for background tasks (using in-memory queue or Bull/BullMQ)
+- Task status tracking
+- User notifications on completion
+- Results persistence
+```
+
+**Database Schema Addition:**
+```typescript
+// shared/schema.ts
+background_tasks {
+  id: varchar
+  userId: string
+  conversationId: string
+  status: 'queued' | 'running' | 'completed' | 'failed'
+  plan: json
+  results: json
+  createdAt: timestamp
+  completedAt: timestamp
+}
+```
+
+**API Endpoints to Add:**
+```typescript
+POST /api/orchestrate/background - Start background orchestration
+GET /api/tasks/:id/status - Check task status
+GET /api/tasks/user/:userId - List user's background tasks
+DELETE /api/tasks/:id - Cancel running task
+```
+
+**Files to Create/Modify:**
+- `server/taskQueue.ts` - New file for background job processing
+- `server/routes.ts` - Add background task endpoints
+- `shared/schema.ts` - Add background_tasks table
+- `client/src/pages/Tasks.tsx` - UI for viewing background tasks
+
+**Expected Outcome:**
+- User: "Research competitors and create a 50-page report" (long task)
+- Master Orchestrator: "This will take 10+ minutes, run in background?"
+- Task runs autonomously, user gets notification when done
+- User can check progress at `/tasks`
+
+---
+
+#### **3.4 Smart Dependency Resolution**
+**What:** Automatic detection and handling of task dependencies
+
+**Implementation:**
+```typescript
+// server/dependencyResolver.ts
+- Analyze execution steps for dependencies
+- Build dependency graph (DAG)
+- Determine optimal execution order
+- Enable parallel execution where possible
+```
+
+**Algorithm:**
+```typescript
+function resolveDependencies(steps: ExecutionStep[]): ExecutionPlan {
+  // 1. Build dependency graph
+  // 2. Topological sort for execution order
+  // 3. Identify parallel execution opportunities
+  // 4. Return optimized execution plan
+}
+```
+
+**Files to Create/Modify:**
+- `server/dependencyResolver.ts` - New file for dependency logic
+- `server/masterOrchestrator.ts` - Integrate dependency resolver
+
+**Expected Outcome:**
+- Step 1: Research topic (no dependencies) → Execute immediately
+- Step 2: Analyze research (depends on Step 1) → Wait for Step 1
+- Step 3: Create summary (depends on Step 2) → Wait for Step 2
+- Step 4: Schedule meeting (no dependencies) → Execute in parallel with Steps 1-3
+- Automatic optimization for fastest execution
+
+---
+
+#### **3.5 Automatic Retry & Fallback Logic**
+**What:** Resilient execution with automatic error recovery
+
+**Implementation:**
+```typescript
+// server/retryLogic.ts
+- Retry failed steps (max 3 attempts)
+- Exponential backoff between retries
+- Fallback to alternative agents on persistent failure
+- Graceful degradation
+```
+
+**Configuration:**
+```typescript
+const RETRY_CONFIG = {
+  maxAttempts: 3,
+  backoffMs: [1000, 5000, 15000],
+  fallbackAgents: {
+    'learning_coach': ['teaching_assistant', 'coordinator'],
+    'research_agent': ['learning_coach', 'coordinator']
+  }
+}
+```
+
+**Files to Create/Modify:**
+- `server/retryLogic.ts` - New file for retry/fallback logic
+- `server/masterOrchestrator.ts` - Integrate retry logic
+- `server/tierConfig.ts` - Add retry limits per tier
+
+**Expected Outcome:**
+- Agent fails with timeout → Retry automatically
+- Agent fails 3 times → Fallback to alternative agent
+- Critical failure → Graceful error message to user
+- 99% orchestration success rate
+
+---
+
+### **Phase 3 Summary**
+
+**Total Implementation Effort:**
+- **New Files:** 4 (agentCommunication.ts, taskQueue.ts, dependencyResolver.ts, retryLogic.ts)
+- **Modified Files:** 5 (masterOrchestrator.ts, routes.ts, schema.ts, tierConfig.ts, Tasks.tsx)
+- **New Database Tables:** 2 (agent_messages, background_tasks)
+- **New API Endpoints:** 8+
+- **Estimated Time:** 2-3 development sessions
+
+**Success Criteria:**
+- ✅ Multiple agents execute in parallel
+- ✅ Agents communicate and create sub-tasks
+- ✅ Long-running tasks execute in background
+- ✅ Dependencies auto-resolved
+- ✅ Failed steps auto-retry with fallback
+- ✅ True autonomous execution achieved
+
+---
+
+## 🎯 Phase 4: Tier System & Monetization (Future)
+
+### **Goal:** Enable paid tiers with advanced features
 
 **Pro Tier ($20/month):**
-- Unlimited messages
-- Advanced multi-step orchestration
+- Unlimited messages (vs 100/month free)
+- Advanced orchestration (parallel + background)
 - Custom agent configurations
-- Enhanced memory capacity
+- Enhanced memory capacity (unlimited vs 50 memories)
+- Priority execution queue
 
 **Premium Tier ($50/month):**
+- Everything in Pro
 - Video Creator Agent (automated video generation)
-- YouTube Agent (content planning, scripting)
-- Movie Maker Agent (multi-scene compilation)
-- Extended API integrations (Gmail, Calendar, Notion)
+- YouTube Agent (content planning, scripting, production)
+- Movie Maker Agent (multi-scene video compilation)
+- Extended API integrations (Gmail, Calendar, Notion, Drive)
+- White-label options
 
-**Files to Configure:**
-- `server/tierConfig.ts` - Define feature gates
-- `shared/schema.ts` - Add premium feature tracking
-- Frontend: Add upgrade prompts and tier indicators
+**Implementation:**
+- `server/tierConfig.ts` - Feature gates and limits
+- `client/src/components/TierUpgrade.tsx` - Upgrade prompts
+- Payment integration (Stripe via Replit integration)
+- Usage tracking and enforcement
 
 ---
 
@@ -183,6 +382,12 @@
 17. `sessions` - Session storage
 18. `user_settings` - User preferences
 19. `user_feedback` - Feedback & ratings
+
+### **Phase 3 Tables (PLANNED - Not Yet Implemented)**
+- `agent_messages` - Agent-to-agent communication
+- `background_tasks` - Background job queue
+
+**⚠️ Note:** Phase 3 tables must be added to `shared/schema.ts` and synced with `npm run db:push --force` before use.
 
 ---
 
@@ -244,6 +449,9 @@
 **The system is working correctly when:**
 - ✅ User submits ONE request
 - ✅ Multiple agents execute WITHOUT user intervention
+- ✅ Agents execute in parallel (Phase 3)
+- ✅ Agents communicate and collaborate (Phase 3)
+- ✅ Long tasks run in background (Phase 3)
 - ✅ Results compile automatically
 - ✅ Visual dashboard shows orchestration
 - ✅ Complete answer delivered
@@ -253,18 +461,49 @@
 - ❌ Agents need step-by-step user input
 - ❌ No autonomous execution
 - ❌ No visual orchestration view
+- ❌ Only sequential execution (no parallelism)
 
 ---
 
-## 📋 Current Task List
+## 📋 Development Roadmap
 
-1. **URGENT:** Complete CRM create/edit forms
-2. Build visual orchestration dashboard
-3. Implement autonomous multi-step workflows
-4. Add agent-to-agent communication
-5. Create background task execution
-6. Build tier upgrade flow
-7. Add premium features (video/multimedia agents)
+### **Completed:**
+1. ✅ Phase 1: Core Infrastructure
+2. ✅ Phase 1: CRM System (Full CRUD)
+3. ✅ Phase 2: Visual Orchestration Dashboard (code complete)
+
+### **In Progress:**
+1. ⏳ Phase 2: Test & deploy SSE streaming (blocked - needs restart)
+
+### **Next Up:**
+1. 🎯 Phase 3.1: Parallel agent execution
+2. 🎯 Phase 3.2: Agent-to-agent communication
+3. 🎯 Phase 3.3: Background task queue
+4. 🎯 Phase 3.4: Dependency resolution
+5. 🎯 Phase 3.5: Retry & fallback logic
+
+### **Future:**
+1. 🔮 Phase 4: Tier system & monetization
+2. 🔮 Premium features (Video/YouTube agents)
+3. 🔮 Extended integrations (Gmail, Calendar, Notion)
+
+---
+
+## 🔧 Technical Debt & Known Issues
+
+### **Critical:**
+1. **Server stability** - Repeated disconnections, needs workflow configuration
+2. **SSE endpoint** - Not accessible until app restart
+
+### **Medium:**
+1. No integration tests for orchestration (only manual Playwright)
+2. MASTER_PLAN.md was outdated (NOW FIXED)
+3. Memory system could use optimization (compaction, archival)
+
+### **Low:**
+1. No visual orchestration history (only current execution)
+2. No user-facing error explanations (technical errors shown)
+3. Mobile orchestration view could be enhanced
 
 ---
 
@@ -275,6 +514,23 @@
 3. **Shared Intelligence** - All agents access same knowledge
 4. **Self-Organizing** - Master orchestrates, specialists execute
 5. **Scalable Architecture** - Ready for multimedia/advanced tools
+6. **Resilient Execution** - Automatic retry, fallback, and error recovery
+
+---
+
+## 🎬 Immediate Next Steps
+
+**For User:**
+1. **Click "Run" in Replit** to restart the app
+2. Test orchestration dashboard at `/orchestrate`
+3. Verify SSE streaming works
+4. Approve Phase 2 completion
+
+**For AI Agent:**
+1. Once app restarted, test SSE orchestration
+2. Mark Phase 2 tasks complete with architect review
+3. Begin Phase 3.1: Parallel agent execution
+4. Update replit.md with Phase 2/3 progress
 
 ---
 
