@@ -304,6 +304,42 @@ const TASK_MANAGER_TOOLS = [
   {
     type: "function" as const,
     function: {
+      name: "delegate_task",
+      description: "Create an asynchronous sub-task for another agent to complete. Use this when you need another agent to work on something that will be processed later in the workflow. Different from consult_agent which is synchronous.",
+      parameters: {
+        type: "object",
+        properties: {
+          toAgent: {
+            type: "string",
+            enum: ["learning_coach", "teaching_assistant", "research_agent", "task_manager", "coordinator"],
+            description: "Which agent should handle this task"
+          },
+          taskType: {
+            type: "string",
+            enum: ["research", "analysis", "learning", "task_creation", "information_request"],
+            description: "Type of task being delegated"
+          },
+          taskDescription: {
+            type: "string",
+            description: "Detailed description of what the agent should do"
+          },
+          context: {
+            type: "string",
+            description: "Additional context about why this task is needed"
+          },
+          priority: {
+            type: "number",
+            enum: [1, 2, 3, 4, 5],
+            description: "Priority level (1=low, 5=urgent)"
+          }
+        },
+        required: ["toAgent", "taskType", "taskDescription"]
+      }
+    }
+  },
+  {
+    type: "function" as const,
+    function: {
       name: "web_search",
       description: "Search the web for current information, news, articles, or any online content. Use this to get real-time, up-to-date information.",
       parameters: {
@@ -394,6 +430,28 @@ export async function executeFunction(
         }
         
         return { success: true, answer: consultAnswer, agent: args.agent };
+      
+      case "delegate_task":
+        // Phase 3.2: Asynchronous agent-to-agent task delegation
+        const { delegateSubTask } = await import("./agentCommunication");
+        
+        const delegationResult = await delegateSubTask(
+          primaryAgent, // fromAgent
+          args.toAgent,
+          args.taskDescription,
+          args.taskType,
+          conversationId,
+          {
+            context: args.context,
+            priority: args.priority || 1,
+          }
+        );
+        
+        return { 
+          success: true, 
+          messageId: delegationResult.messageId,
+          message: `Task delegated to ${args.toAgent}. It will be processed in the orchestration flow.`
+        };
       
       case "web_search":
         // Web search capability - searches online for current information

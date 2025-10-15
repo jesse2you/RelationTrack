@@ -5,6 +5,11 @@ import OpenAI from "openai";
 import { AGENTS, AgentRole, generateAgentResponse } from "./agentCoordinator";
 import { storage } from "./storage";
 import { getUserTierConfig, hasToolAccess, checkToolLimit } from "./tierConfig";
+import { 
+  checkAndProcessMessages, 
+  getPendingMessagesForAgent,
+  processAgentMessage 
+} from "./agentCommunication";
 
 const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
@@ -331,11 +336,32 @@ export async function executePlan(
       return;
     }
     
+    // Phase 3.2: Check for pending agent messages first
+    let agentMessageResults = '';
+    try {
+      const pendingMessages = await getPendingMessagesForAgent(step.agent, conversationId);
+      
+      if (pendingMessages.length > 0) {
+        console.log(`  📨 Processing ${pendingMessages.length} pending messages for ${step.agent}...`);
+        const messageResults = await checkAndProcessMessages(step.agent, conversationId, userId, userTier);
+        
+        if (messageResults.results.length > 0) {
+          agentMessageResults = `\n\n[Sub-tasks completed by ${step.agent}]:\n` + 
+            messageResults.results.map((r, i) => `${i + 1}. ${r}`).join('\n');
+        }
+      }
+    } catch (error: any) {
+      console.error(`  ⚠️  Agent message processing failed: ${error.message}`);
+    }
+    
     // Execute agent task
     try {
+      // Build context with any sub-task results
+      const taskContext = step.action + agentMessageResults;
+      
       const agentResponse = await generateAgentResponse(
         step.agent as any,
-        [{ role: "user", content: step.action }],
+        [{ role: "user", content: taskContext }],
         false, // Non-streaming for orchestration
         userId
       );
