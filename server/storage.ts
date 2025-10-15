@@ -11,6 +11,7 @@ import {
   userMemory,
   userTiers,
   agentInteractions,
+  agentMessages,
   companies,
   contacts,
   projects,
@@ -38,6 +39,8 @@ import {
   type UserTier,
   type InsertAgentInteraction,
   type AgentInteraction,
+  type InsertAgentMessage,
+  type AgentMessage,
   type InsertCompany,
   type Company,
   type InsertContact,
@@ -110,6 +113,18 @@ export interface IStorage {
   // Agent Interactions
   getAgentInteractions(userId?: string): Promise<AgentInteraction[]>;
   createAgentInteraction(data: InsertAgentInteraction): Promise<AgentInteraction>;
+  
+  // Phase 3.2: Agent-to-Agent Communication
+  getAgentMessages(filters: {
+    conversationId?: string;
+    fromAgent?: string;
+    toAgent?: string;
+    status?: string;
+    limit?: number;
+  }): Promise<AgentMessage[]>;
+  getAgentMessage(id: string): Promise<AgentMessage | undefined>;
+  createAgentMessage(data: InsertAgentMessage): Promise<AgentMessage>;
+  updateAgentMessage(id: string, data: Partial<InsertAgentMessage> & { completedAt?: Date }): Promise<AgentMessage>;
   
   // CRM - Companies
   getCompanies(userId?: string): Promise<Company[]>;
@@ -399,6 +414,66 @@ export class DbStorage implements IStorage {
 
   async createAgentInteraction(data: InsertAgentInteraction): Promise<AgentInteraction> {
     const result = await db.insert(agentInteractions).values(data).returning();
+    return result[0];
+  }
+
+  // ============ PHASE 3.2: AGENT-TO-AGENT COMMUNICATION ============
+  
+  async getAgentMessages(filters: {
+    conversationId?: string;
+    fromAgent?: string;
+    toAgent?: string;
+    status?: string;
+    limit?: number;
+  }): Promise<AgentMessage[]> {
+    let query = db.select().from(agentMessages);
+    
+    const conditions = [];
+    if (filters.conversationId) {
+      conditions.push(eq(agentMessages.conversationId, filters.conversationId));
+    }
+    if (filters.fromAgent) {
+      conditions.push(eq(agentMessages.fromAgent, filters.fromAgent));
+    }
+    if (filters.toAgent) {
+      conditions.push(eq(agentMessages.toAgent, filters.toAgent));
+    }
+    if (filters.status) {
+      conditions.push(eq(agentMessages.status, filters.status));
+    }
+    
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions)) as any;
+    }
+    
+    query = query.orderBy(desc(agentMessages.createdAt)) as any;
+    
+    if (filters.limit) {
+      query = query.limit(filters.limit) as any;
+    }
+    
+    return await query;
+  }
+  
+  async getAgentMessage(id: string): Promise<AgentMessage | undefined> {
+    const result = await db.select().from(agentMessages).where(eq(agentMessages.id, id));
+    return result[0];
+  }
+  
+  async createAgentMessage(data: InsertAgentMessage): Promise<AgentMessage> {
+    const result = await db.insert(agentMessages).values(data).returning();
+    return result[0];
+  }
+  
+  async updateAgentMessage(
+    id: string, 
+    data: Partial<InsertAgentMessage> & { completedAt?: Date }
+  ): Promise<AgentMessage> {
+    const result = await db
+      .update(agentMessages)
+      .set(data)
+      .where(eq(agentMessages.id, id))
+      .returning();
     return result[0];
   }
 
