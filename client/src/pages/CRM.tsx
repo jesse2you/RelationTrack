@@ -85,6 +85,9 @@ export default function CRM() {
       setCompanyDialog({ open: false, mode: "create", data: null });
       setCompanyForm({ companyName: "", website: "", industry: "", size: "", address: "", city: "", state: "", country: "", notes: "" });
     },
+    onError: () => {
+      toast({ title: "Failed to create company", variant: "destructive" });
+    },
   });
 
   const updateCompanyMutation = useMutation({
@@ -93,6 +96,9 @@ export default function CRM() {
       queryClient.invalidateQueries({ queryKey: ["/api/companies"] });
       toast({ title: "Company updated successfully" });
       setCompanyDialog({ open: false, mode: "create", data: null });
+    },
+    onError: () => {
+      toast({ title: "Failed to update company", variant: "destructive" });
     },
   });
 
@@ -105,6 +111,9 @@ export default function CRM() {
       setContactDialog({ open: false, mode: "create", data: null });
       setContactForm({ firstName: "", lastName: "", email: "", phone: "", jobTitle: "", department: "", companyId: "", status: "active", customerType: "", notes: "" });
     },
+    onError: () => {
+      toast({ title: "Failed to create contact", variant: "destructive" });
+    },
   });
 
   const updateContactMutation = useMutation({
@@ -113,6 +122,9 @@ export default function CRM() {
       queryClient.invalidateQueries({ queryKey: ["/api/contacts"] });
       toast({ title: "Contact updated successfully" });
       setContactDialog({ open: false, mode: "create", data: null });
+    },
+    onError: () => {
+      toast({ title: "Failed to update contact", variant: "destructive" });
     },
   });
 
@@ -123,6 +135,9 @@ export default function CRM() {
       queryClient.invalidateQueries({ queryKey: ["/api/companies"] });
       toast({ title: "Company deleted" });
     },
+    onError: () => {
+      toast({ title: "Failed to delete company", variant: "destructive" });
+    },
   });
 
   const deleteContactMutation = useMutation({
@@ -130,6 +145,9 @@ export default function CRM() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/contacts"] });
       toast({ title: "Contact deleted" });
+    },
+    onError: () => {
+      toast({ title: "Failed to delete contact", variant: "destructive" });
     },
   });
 
@@ -139,6 +157,9 @@ export default function CRM() {
       queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
       toast({ title: "Project deleted" });
     },
+    onError: () => {
+      toast({ title: "Failed to delete project", variant: "destructive" });
+    },
   });
 
   const deleteCommMutation = useMutation({
@@ -147,6 +168,9 @@ export default function CRM() {
       queryClient.invalidateQueries({ queryKey: ["/api/communications"] });
       toast({ title: "Communication deleted" });
     },
+    onError: () => {
+      toast({ title: "Failed to delete communication", variant: "destructive" });
+    },
   });
 
   const deleteResearchMutation = useMutation({
@@ -154,6 +178,9 @@ export default function CRM() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/research"] });
       toast({ title: "Research deleted" });
+    },
+    onError: () => {
+      toast({ title: "Failed to delete research", variant: "destructive" });
     },
   });
 
@@ -166,6 +193,9 @@ export default function CRM() {
       setProjectDialog({ open: false, mode: "create", data: null });
       setProjectForm({ projectName: "", description: "", category: "", status: "planning", priority: "medium", contactId: "", companyId: "" });
     },
+    onError: () => {
+      toast({ title: "Failed to create project", variant: "destructive" });
+    },
   });
 
   const updateProjectMutation = useMutation({
@@ -174,6 +204,9 @@ export default function CRM() {
       queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
       toast({ title: "Project updated successfully" });
       setProjectDialog({ open: false, mode: "create", data: null });
+    },
+    onError: () => {
+      toast({ title: "Failed to update project", variant: "destructive" });
     },
   });
 
@@ -186,6 +219,9 @@ export default function CRM() {
       setCommDialog({ open: false, mode: "create", data: null });
       setCommForm({ contactId: "", projectId: "", communicationType: "email", direction: "outbound", subject: "", content: "" });
     },
+    onError: () => {
+      toast({ title: "Failed to log communication", variant: "destructive" });
+    },
   });
 
   const updateCommMutation = useMutation({
@@ -194,6 +230,9 @@ export default function CRM() {
       queryClient.invalidateQueries({ queryKey: ["/api/communications"] });
       toast({ title: "Communication updated successfully" });
       setCommDialog({ open: false, mode: "create", data: null });
+    },
+    onError: () => {
+      toast({ title: "Failed to update communication", variant: "destructive" });
     },
   });
 
@@ -206,6 +245,9 @@ export default function CRM() {
       setResearchDialog({ open: false, mode: "create", data: null });
       setResearchForm({ title: "", summary: "", researchType: "", contactId: "", companyId: "", projectId: "" });
     },
+    onError: () => {
+      toast({ title: "Failed to create research", variant: "destructive" });
+    },
   });
 
   const updateResearchMutation = useMutation({
@@ -215,10 +257,17 @@ export default function CRM() {
       toast({ title: "Research updated successfully" });
       setResearchDialog({ open: false, mode: "create", data: null });
     },
+    onError: () => {
+      toast({ title: "Failed to update research", variant: "destructive" });
+    },
   });
 
   // Handle company form
   const handleCompanySubmit = () => {
+    if (!companyForm.companyName.trim()) {
+      toast({ title: "Company name is required", variant: "destructive" });
+      return;
+    }
     if (companyDialog.mode === "create") {
       createCompanyMutation.mutate(companyForm);
     } else if (companyDialog.data) {
@@ -228,6 +277,10 @@ export default function CRM() {
 
   // Handle contact form
   const handleContactSubmit = () => {
+    if (!contactForm.firstName.trim() || !contactForm.lastName.trim()) {
+      toast({ title: "First and last name are required", variant: "destructive" });
+      return;
+    }
     if (contactDialog.mode === "create") {
       createContactMutation.mutate({ ...contactForm, companyId: contactForm.companyId || null });
     } else if (contactDialog.data) {
@@ -237,6 +290,10 @@ export default function CRM() {
 
   // Handle project form
   const handleProjectSubmit = () => {
+    if (!projectForm.projectName.trim()) {
+      toast({ title: "Project name is required", variant: "destructive" });
+      return;
+    }
     const data = {
       ...projectForm,
       contactId: projectForm.contactId || null,
@@ -251,6 +308,14 @@ export default function CRM() {
 
   // Handle communication form
   const handleCommSubmit = () => {
+    if (!commForm.contactId) {
+      toast({ title: "Contact is required", variant: "destructive" });
+      return;
+    }
+    if (!commForm.content.trim()) {
+      toast({ title: "Communication content is required", variant: "destructive" });
+      return;
+    }
     const data = {
       ...commForm,
       contactId: commForm.contactId || null,
@@ -265,6 +330,10 @@ export default function CRM() {
 
   // Handle research form
   const handleResearchSubmit = () => {
+    if (!researchForm.title.trim() || !researchForm.summary.trim()) {
+      toast({ title: "Title and summary are required", variant: "destructive" });
+      return;
+    }
     const data = {
       ...researchForm,
       contactId: researchForm.contactId || null,
