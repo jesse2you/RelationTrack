@@ -365,9 +365,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(result);
     } catch (error: any) {
       console.error('Orchestration error:', error);
-      res.status(500).json({ 
+      
+      // Return 422 for validation errors, 500 for other errors
+      const statusCode = error.isValidationError ? 422 : 500;
+      res.status(statusCode).json({ 
         success: false, 
-        error: error.message 
+        error: error.message,
+        type: error.isValidationError ? 'validation_error' : 'server_error'
       });
     }
   });
@@ -404,7 +408,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.end();
     } catch (error: any) {
       console.error('Streaming orchestration error:', error);
-      res.write(`data: ${JSON.stringify({ type: 'error', error: error.message })}\n\n`);
+      
+      // Send appropriate error type via SSE
+      const errorType = error.isValidationError ? 'validation_error' : 'server_error';
+      res.write(`data: ${JSON.stringify({ 
+        type: 'error', 
+        errorType,
+        error: error.message 
+      })}\n\n`);
       res.end();
     }
   });

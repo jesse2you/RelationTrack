@@ -95,6 +95,9 @@ Return a JSON object with this structure:
   "estimatedDuration": "time_estimate"
 }
 
+CRITICAL: Use ONLY the exact agent IDs shown in parentheses above (coordinator, learning_coach, teaching_assistant, research_agent, task_manager). 
+NEVER use agent display names or create custom agent IDs!
+
 Execution Modes:
 - "sequential": Execute steps one at a time (use when steps must be in order)
 - "parallel": Execute all steps simultaneously (use when steps are completely independent)
@@ -127,9 +130,72 @@ IMPORTANT:
     executionMode: planData.executionMode || 'mixed', // Default to mixed (optimal)
   };
 
+  // Validate agent IDs and tools in the plan
+  validateExecutionPlan(plan, availableAgents, availableTools);
+
   console.log('📋 Execution Plan Created:', JSON.stringify(plan, null, 2));
   
   return plan;
+}
+
+/**
+ * Validate that all agent IDs and tools in the execution plan are valid
+ * Throws ValidationError with detailed information
+ */
+function validateExecutionPlan(plan: ExecutionPlan, availableAgents: string[], availableTools: string[]): void {
+  const errors: string[] = [];
+  
+  // Validate primary agent
+  if (!AGENTS[plan.primaryAgent]) {
+    errors.push(`Invalid primary agent: "${plan.primaryAgent}" not found in agent registry`);
+  } else if (!availableAgents.includes(plan.primaryAgent)) {
+    errors.push(`Primary agent "${plan.primaryAgent}" not available for this user tier`);
+  }
+  
+  // Validate collaborating agents
+  plan.collaboratingAgents.forEach(agentId => {
+    if (!AGENTS[agentId]) {
+      errors.push(`Invalid collaborating agent: "${agentId}" not found in agent registry`);
+    } else if (!availableAgents.includes(agentId)) {
+      errors.push(`Collaborating agent "${agentId}" not available for this user tier`);
+    }
+  });
+  
+  // Validate agents in execution steps
+  plan.executionSteps.forEach((step, index) => {
+    if (!AGENTS[step.agent]) {
+      errors.push(`Invalid agent in step ${step.stepNumber}: "${step.agent}" not found in agent registry`);
+    } else if (!availableAgents.includes(step.agent)) {
+      errors.push(`Agent "${step.agent}" in step ${step.stepNumber} not available for this user tier`);
+    }
+    
+    // Validate tools in this step
+    step.toolsUsed?.forEach(tool => {
+      if (!availableTools.includes(tool)) {
+        errors.push(`Tool "${tool}" in step ${step.stepNumber} not available for this user tier`);
+      }
+    });
+  });
+  
+  // Validate tools needed in plan
+  plan.toolsNeeded?.forEach(tool => {
+    if (!availableTools.includes(tool)) {
+      errors.push(`Tool "${tool}" in plan not available for this user tier`);
+    }
+  });
+  
+  // If any errors found, throw ValidationError with helpful message
+  if (errors.length > 0) {
+    const validationError = new Error(
+      `Execution plan validation failed:\n${errors.join('\n')}\n\n` +
+      `Valid agent IDs: ${Object.keys(AGENTS).join(', ')}\n` +
+      `Available agents for this tier: ${availableAgents.join(', ')}\n` +
+      `Available tools for this tier: ${availableTools.join(', ')}`
+    );
+    (validationError as any).isValidationError = true;
+    (validationError as any).statusCode = 422;
+    throw validationError;
+  }
 }
 
 /**
