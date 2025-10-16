@@ -471,3 +471,60 @@ export const insertAgentMessageSchema = createInsertSchema(agentMessages).omit({
 
 export type InsertAgentMessage = z.infer<typeof insertAgentMessageSchema>;
 export type AgentMessage = typeof agentMessages.$inferSelect;
+
+// Analytics & Telemetry - Track system usage and performance
+export const analyticsEvents = pgTable("analytics_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().default('default_user'),
+  eventType: text("event_type").notNull(), // 'orchestration', 'tool_execution', 'agent_interaction', 'error'
+  eventCategory: text("event_category").notNull(), // 'usage', 'performance', 'cost', 'error'
+  agentId: text("agent_id"), // Which agent was involved
+  toolName: text("tool_name"), // Which tool was used
+  executionTimeMs: integer("execution_time_ms"), // How long it took
+  tokensUsed: integer("tokens_used"), // Tokens consumed
+  estimatedCost: text("estimated_cost"), // Cost in USD (as string for precision)
+  success: boolean("success").default(true).notNull(),
+  errorMessage: text("error_message"),
+  metadata: jsonb("metadata"), // Additional context data
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+}, (table) => [
+  index("idx_analytics_user").on(table.userId),
+  index("idx_analytics_type").on(table.eventType),
+  index("idx_analytics_agent").on(table.agentId),
+  index("idx_analytics_tool").on(table.toolName),
+  index("idx_analytics_created").on(table.createdAt),
+]);
+
+export const dailyMetrics = pgTable("daily_metrics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  date: timestamp("date").notNull(),
+  totalOrchestrations: integer("total_orchestrations").default(0).notNull(),
+  totalConversations: integer("total_conversations").default(0).notNull(),
+  totalMessages: integer("total_messages").default(0).notNull(),
+  totalToolExecutions: integer("total_tool_executions").default(0).notNull(),
+  avgResponseTimeMs: integer("avg_response_time_ms"),
+  totalTokensUsed: integer("total_tokens_used").default(0).notNull(),
+  totalCost: text("total_cost").default('0').notNull(),
+  successRate: text("success_rate"), // Percentage as string
+  mostUsedAgent: text("most_used_agent"),
+  mostUsedTool: text("most_used_tool"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+}, (table) => [
+  index("idx_daily_metrics_date").on(table.date),
+]);
+
+// Insert schemas for analytics
+export const insertAnalyticsEventSchema = createInsertSchema(analyticsEvents).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertDailyMetricsSchema = createInsertSchema(dailyMetrics).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertAnalyticsEvent = z.infer<typeof insertAnalyticsEventSchema>;
+export type AnalyticsEvent = typeof analyticsEvents.$inferSelect;
+export type InsertDailyMetrics = z.infer<typeof insertDailyMetricsSchema>;
+export type DailyMetrics = typeof dailyMetrics.$inferSelect;

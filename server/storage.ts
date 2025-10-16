@@ -17,6 +17,8 @@ import {
   projects,
   communications,
   research,
+  analyticsEvents,
+  dailyMetrics,
   type InsertConversation, 
   type Conversation, 
   type InsertMessage, 
@@ -50,7 +52,11 @@ import {
   type InsertCommunication,
   type Communication,
   type InsertResearch,
-  type Research
+  type Research,
+  type InsertAnalyticsEvent,
+  type AnalyticsEvent,
+  type InsertDailyMetrics,
+  type DailyMetrics
 } from "@shared/schema";
 import { eq, desc, and } from "drizzle-orm";
 
@@ -168,6 +174,18 @@ export interface IStorage {
   createResearch(data: InsertResearch): Promise<Research>;
   updateResearch(id: string, data: Partial<InsertResearch>): Promise<Research>;
   deleteResearch(id: string): Promise<void>;
+  
+  // Analytics & Telemetry
+  createAnalyticsEvent(data: InsertAnalyticsEvent): Promise<AnalyticsEvent>;
+  getAnalyticsEvents(filters: {
+    userId?: string;
+    eventType?: string;
+    agentId?: string;
+    toolName?: string;
+    limit?: number;
+  }): Promise<AnalyticsEvent[]>;
+  getDailyMetrics(days?: number): Promise<DailyMetrics[]>;
+  createOrUpdateDailyMetrics(date: Date, data: Partial<InsertDailyMetrics>): Promise<DailyMetrics>;
 }
 
 export class DbStorage implements IStorage {
@@ -675,6 +693,68 @@ export class DbStorage implements IStorage {
 
   async deleteResearch(id: string): Promise<void> {
     await db.delete(research).where(eq(research.id, id));
+  }
+
+  // Analytics & Telemetry
+  async createAnalyticsEvent(data: InsertAnalyticsEvent): Promise<AnalyticsEvent> {
+    const [event] = await db.insert(analyticsEvents).values(data).returning();
+    return event;
+  }
+
+  async getAnalyticsEvents(filters: {
+    userId?: string;
+    eventType?: string;
+    agentId?: string;
+    toolName?: string;
+    limit?: number;
+  }): Promise<AnalyticsEvent[]> {
+    const conditions = [];
+    
+    if (filters.userId) {
+      conditions.push(eq(analyticsEvents.userId, filters.userId));
+    }
+    if (filters.eventType) {
+      conditions.push(eq(analyticsEvents.eventType, filters.eventType));
+    }
+    if (filters.agentId) {
+      conditions.push(eq(analyticsEvents.agentId, filters.agentId));
+    }
+    if (filters.toolName) {
+      conditions.push(eq(analyticsEvents.toolName, filters.toolName));
+    }
+
+    let query = db.select().from(analyticsEvents);
+    
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions)) as any;
+    }
+
+    query = query.orderBy(desc(analyticsEvents.createdAt)) as any;
+
+    if (filters.limit) {
+      query = query.limit(filters.limit) as any;
+    }
+
+    return await query;
+  }
+
+  async getDailyMetrics(days: number = 30): Promise<DailyMetrics[]> {
+    return await db.select()
+      .from(dailyMetrics)
+      .orderBy(desc(dailyMetrics.date))
+      .limit(days);
+  }
+
+  async createOrUpdateDailyMetrics(date: Date, data: Partial<InsertDailyMetrics>): Promise<DailyMetrics> {
+    const [metric] = await db
+      .insert(dailyMetrics)
+      .values({ ...data, date })
+      .onConflictDoUpdate({
+        target: dailyMetrics.date,
+        set: data,
+      })
+      .returning();
+    return metric;
   }
 }
 

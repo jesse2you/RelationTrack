@@ -7,7 +7,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
-import { Shield, BarChart3, MessageSquare, Users, TrendingUp, Sparkles } from "lucide-react";
+import { Shield, BarChart3, MessageSquare, Users, TrendingUp, Sparkles, Activity, Zap, DollarSign, Clock } from "lucide-react";
+import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 
 interface AdminUser {
   isAdmin: boolean;
@@ -19,7 +20,52 @@ interface Analytics {
   totalConversations: number;
   totalFeedback: number;
   adminCount: number;
+  agentUsage: Array<{ agentId: string; count: number }>;
+  totalAgentInteractions: number;
+  toolUsage: Array<{ toolName: string; count: number }>;
+  totalToolExecutions: number;
+  avgExecutionTime: number;
+  successRate: number;
+  totalCost: string;
+  dailyMetrics: Array<{
+    date: string;
+    conversations: number;
+    messages: number;
+    orchestrations: number;
+    toolExecutions: number;
+    avgResponseTime: number;
+    cost: string;
+  }>;
+  recentEvents: Array<{
+    id: string;
+    type: string;
+    agent: string;
+    tool: string;
+    executionTime: number;
+    success: boolean;
+    timestamp: string;
+  }>;
 }
+
+const CHART_COLORS = {
+  primary: "hsl(var(--primary))",
+  secondary: "hsl(var(--secondary))",
+  accent: "hsl(var(--accent))",
+  success: "#10b981",
+  warning: "#f59e0b",
+  danger: "#ef4444",
+  purple: "#a855f7",
+  cyan: "#06b6d4",
+  pink: "#ec4899",
+};
+
+const AGENT_COLORS: Record<string, string> = {
+  'learning_coach': CHART_COLORS.purple,
+  'teaching_assistant': CHART_COLORS.cyan,
+  'research_agent': CHART_COLORS.pink,
+  'task_manager': CHART_COLORS.success,
+  'head_coordinator': CHART_COLORS.accent,
+};
 
 export default function Admin() {
   const { user, isLoading: authLoading } = useAuth();
@@ -111,48 +157,154 @@ export default function Admin() {
           </Button>
         </div>
 
-        {/* Analytics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {/* Key Metrics Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Users</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{analytics?.totalUsers || 0}</div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Conversations</CardTitle>
+            <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Conversations</CardTitle>
               <MessageSquare className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{analytics?.totalConversations || 0}</div>
+              <p className="text-xs text-muted-foreground mt-1">
+                {analytics?.totalAgentInteractions || 0} agent interactions
+              </p>
             </CardContent>
           </Card>
 
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Feedback Entries</CardTitle>
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Avg Response Time</CardTitle>
+              <Clock className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{analytics?.totalFeedback || 0}</div>
+              <div className="text-2xl font-bold">{analytics?.avgExecutionTime || 0}ms</div>
+              <p className="text-xs text-muted-foreground mt-1">
+                {analytics?.successRate || 100}% success rate
+              </p>
             </CardContent>
           </Card>
 
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Admin Users</CardTitle>
-              <Shield className="h-4 w-4 text-muted-foreground" />
+            <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Tool Executions</CardTitle>
+              <Zap className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{analytics?.adminCount || 0}</div>
+              <div className="text-2xl font-bold">{analytics?.totalToolExecutions || 0}</div>
+              <p className="text-xs text-muted-foreground mt-1">
+                {analytics?.toolUsage?.length || 0} unique tools
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Estimated Cost</CardTitle>
+              <DollarSign className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">${analytics?.totalCost || '0.00'}</div>
+              <p className="text-xs text-muted-foreground mt-1">
+                {analytics?.totalUsers || 0} users
+              </p>
             </CardContent>
           </Card>
         </div>
+
+        {/* Charts Row 1: Agent Usage & Tool Execution */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Activity className="w-5 h-5" />
+                Agent Usage Distribution
+              </CardTitle>
+              <CardDescription>Interactions by specialized agents</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {analytics?.agentUsage && analytics.agentUsage.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={analytics.agentUsage}>
+                    <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
+                    <XAxis dataKey="agentId" fontSize={12} />
+                    <YAxis fontSize={12} />
+                    <Tooltip />
+                    <Bar dataKey="count" fill={CHART_COLORS.purple} radius={[8, 8, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+                  No agent data available
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Zap className="w-5 h-5" />
+                Top Tools Used
+              </CardTitle>
+              <CardDescription>Most frequently executed tools</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {analytics?.toolUsage && analytics.toolUsage.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={analytics.toolUsage.slice(0, 10)}>
+                    <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
+                    <XAxis dataKey="toolName" fontSize={12} angle={-45} textAnchor="end" height={80} />
+                    <YAxis fontSize={12} />
+                    <Tooltip />
+                    <Bar dataKey="count" fill={CHART_COLORS.cyan} radius={[8, 8, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+                  No tool data available
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Charts Row 2: Time Series */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="w-5 h-5" />
+              Activity Over Time (Last 30 Days)
+            </CardTitle>
+            <CardDescription>Conversations, messages, and tool executions</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {analytics?.dailyMetrics && analytics.dailyMetrics.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={analytics.dailyMetrics.slice().reverse()}>
+                  <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
+                  <XAxis 
+                    dataKey="date" 
+                    fontSize={12}
+                    tickFormatter={(value) => new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                  />
+                  <YAxis fontSize={12} />
+                  <Tooltip 
+                    labelFormatter={(value) => new Date(value).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                  />
+                  <Legend />
+                  <Line type="monotone" dataKey="conversations" stroke={CHART_COLORS.purple} strokeWidth={2} name="Conversations" />
+                  <Line type="monotone" dataKey="messages" stroke={CHART_COLORS.cyan} strokeWidth={2} name="Messages" />
+                  <Line type="monotone" dataKey="toolExecutions" stroke={CHART_COLORS.pink} strokeWidth={2} name="Tool Executions" />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+                No time series data available
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* AI Assistant */}
         <Card>

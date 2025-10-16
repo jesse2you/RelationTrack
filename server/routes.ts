@@ -605,12 +605,99 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const conversations = await storage.getConversations();
       const feedback = await db.select().from(userFeedback);
       const allUsers = await db.select().from(users);
+      const agentInteractions = await storage.getAgentInteractions();
+      const analyticsEvents = await storage.getAnalyticsEvents({ limit: 1000 });
+      const dailyMetrics = await storage.getDailyMetrics(30);
+      
+      // Calculate agent usage stats
+      const agentUsageMap = new Map<string, number>();
+      agentInteractions.forEach(interaction => {
+        const count = agentUsageMap.get(interaction.primaryAgent) || 0;
+        agentUsageMap.set(interaction.primaryAgent, count + 1);
+      });
+      
+      const agentUsage = Array.from(agentUsageMap.entries()).map(([agentId, count]) => ({
+        agentId,
+        count
+      })).sort((a, b) => b.count - a.count);
+      
+      // Calculate tool usage stats
+      const toolUsageMap = new Map<string, number>();
+      analyticsEvents
+        .filter(e => e.toolName)
+        .forEach(event => {
+          const count = toolUsageMap.get(event.toolName!) || 0;
+          toolUsageMap.set(event.toolName!, count + 1);
+        });
+      
+      const toolUsage = Array.from(toolUsageMap.entries()).map(([toolName, count]) => ({
+        toolName,
+        count
+      })).sort((a, b) => b.count - a.count);
+      
+      // Calculate performance metrics
+      const executionTimes = analyticsEvents
+        .filter(e => e.executionTimeMs)
+        .map(e => e.executionTimeMs!);
+      
+      const avgExecutionTime = executionTimes.length > 0
+        ? Math.round(executionTimes.reduce((a, b) => a + b, 0) / executionTimes.length)
+        : 0;
+      
+      // Calculate success rate
+      const successfulEvents = analyticsEvents.filter(e => e.success).length;
+      const successRate = analyticsEvents.length > 0
+        ? Math.round((successfulEvents / analyticsEvents.length) * 100)
+        : 100;
+      
+      // Calculate cost metrics
+      const totalCost = analyticsEvents
+        .filter(e => e.estimatedCost)
+        .reduce((sum, e) => sum + parseFloat(e.estimatedCost || '0'), 0);
       
       res.json({
+        // Basic stats
         totalConversations: conversations.length,
         totalUsers: allUsers.length,
         totalFeedback: feedback.length,
         adminCount: allUsers.filter((u: any) => u.isAdmin).length,
+        
+        // Agent analytics
+        agentUsage,
+        totalAgentInteractions: agentInteractions.length,
+        
+        // Tool analytics
+        toolUsage,
+        totalToolExecutions: toolUsageMap.size > 0 ? Array.from(toolUsageMap.values()).reduce((a, b) => a + b, 0) : 0,
+        
+        // Performance metrics
+        avgExecutionTime,
+        successRate,
+        
+        // Cost metrics
+        totalCost: totalCost.toFixed(4),
+        
+        // Time series data
+        dailyMetrics: dailyMetrics.map(m => ({
+          date: m.date,
+          conversations: m.totalConversations,
+          messages: m.totalMessages,
+          orchestrations: m.totalOrchestrations,
+          toolExecutions: m.totalToolExecutions,
+          avgResponseTime: m.avgResponseTimeMs,
+          cost: m.totalCost,
+        })),
+        
+        // Recent events
+        recentEvents: analyticsEvents.slice(0, 50).map(e => ({
+          id: e.id,
+          type: e.eventType,
+          agent: e.agentId,
+          tool: e.toolName,
+          executionTime: e.executionTimeMs,
+          success: e.success,
+          timestamp: e.createdAt,
+        })),
       });
     } catch (error) {
       console.error("Admin analytics error:", error);
