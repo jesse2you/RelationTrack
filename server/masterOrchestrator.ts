@@ -356,8 +356,13 @@ export async function executePlan(
     
     // Execute agent task
     try {
-      // Build context with any sub-task results
-      const taskContext = step.action + agentMessageResults;
+      // Build context with explicit tool usage instructions
+      let taskContext = step.action + agentMessageResults;
+      
+      // If tools are specified in the plan, explicitly instruct agent to use them
+      if (step.toolsUsed && step.toolsUsed.length > 0) {
+        taskContext += `\n\nIMPORTANT: You must use these tools to complete this task: ${step.toolsUsed.join(', ')}. Actually execute the tools - don't just describe what you would do.`;
+      }
       
       const agentResponse = await generateAgentResponse(
         step.agent as any,
@@ -366,44 +371,73 @@ export async function executePlan(
         userId
       );
       
-      const choice = agentResponse.choices[0];
+      let choice = agentResponse.choices[0];
       let output = choice.message.content || '';
+      let conversationMessages: any[] = [{ role: "user" as const, content: taskContext }];
       
-      // Handle tool calls (for Task Manager and collaboration tools)
-      if (choice.message.tool_calls && choice.message.tool_calls.length > 0) {
-        const toolCall = choice.message.tool_calls[0];
-        const functionName = toolCall.function.name;
+      // Handle tool calls - loop until no more tool calls (support multiple rounds)
+      let maxToolRounds = 5; // Prevent infinite loops
+      while (choice.message.tool_calls && choice.message.tool_calls.length > 0 && maxToolRounds > 0) {
+        maxToolRounds--;
         
-        console.log(`  🔧 Agent ${step.agent} calling tool: ${functionName}`);
+        console.log(`  🔧 Agent ${step.agent} calling ${choice.message.tool_calls.length} tool(s)`);
         
-        try {
+        // Add assistant message with tool calls
+        conversationMessages.push({
+          role: "assistant" as const,
+          content: choice.message.content || "",
+          tool_calls: choice.message.tool_calls
+        });
+        
+        // Execute all tools and collect results
+        const { executeFunction } = await import('./agentCoordinator');
+        
+        for (const toolCall of choice.message.tool_calls) {
+          const functionName = toolCall.function.name;
           const functionArgs = JSON.parse(toolCall.function.arguments);
+          console.log(`    ⚙️  Executing: ${functionName}`, functionArgs);
           
-          // Execute the tool
-          const { executeFunction } = await import('./agentCoordinator');
-          const toolResult = await executeFunction(functionName, functionArgs, conversationId, step.agent);
-          
-          // Get final response from agent with tool result
-          const followUpMessages = [
-            { role: "user" as const, content: taskContext },
-            { role: "assistant" as const, content: choice.message.content || "", tool_calls: choice.message.tool_calls },
-            { role: "tool" as const, content: JSON.stringify(toolResult), tool_call_id: toolCall.id }
-          ];
-          
-          const finalResponse = await generateAgentResponse(
-            step.agent as any,
-            followUpMessages as any,
-            false,
-            userId
-          );
-          
-          output = finalResponse.choices[0].message.content || '';
-          console.log(`  ✅ Tool ${functionName} executed successfully`);
-          
-        } catch (toolError: any) {
-          console.error(`  ⚠️  Tool execution failed: ${toolError.message}`);
-          output = `${choice.message.content || ''}\n\n[Note: Tool execution encountered an issue: ${toolError.message}]`;
+          try {
+            const toolResult = await executeFunction(functionName, functionArgs, conversationId, step.agent);
+            console.log(`    ✅ ${functionName} result:`, toolResult);
+            
+            // Add tool response message
+            conversationMessages.push({
+              role: "tool" as const,
+              content: JSON.stringify(toolResult),
+              tool_call_id: toolCall.id
+            });
+            
+          } catch (toolError: any) {
+            console.error(`    ⚠️  ${functionName} failed: ${toolError.message}`);
+            // Add error as tool response
+            conversationMessages.push({
+              role: "tool" as const,
+              content: JSON.stringify({ error: toolError.message }),
+              tool_call_id: toolCall.id
+            });
+          }
         }
+        
+        // Get next response from agent (may contain more tool calls)
+        const nextResponse = await generateAgentResponse(
+          step.agent as any,
+          conversationMessages as any,
+          false,
+          userId
+        );
+        
+        choice = nextResponse.choices[0];
+        output = choice.message.content || '';
+      }
+      
+      // Log if agent didn't use any tools
+      if (!agentResponse.choices[0].message.tool_calls) {
+        console.log(`  ℹ️  Agent ${step.agent} responded without using tools`);
+      }
+      
+      if (maxToolRounds === 0) {
+        console.warn(`  ⚠️  Max tool rounds reached for ${step.agent}`);
       }
       
       resultsMap.set(step.stepNumber, {
@@ -563,15 +597,108 @@ export async function orchestrateStreaming(
           throw new Error(`Unknown agent: ${step.agent}`);
         }
         
-        // Execute agent task
+        // Phase 3.2: Check for pending agent messages first
+        let agentMessageResults = '';
+        try {
+          const pendingMessages = await getPendingMessagesForAgent(step.agent, conversationId);
+          
+          if (pendingMessages.length > 0) {
+            console.log(`  📨 Processing ${pendingMessages.length} pending messages for ${step.agent}...`);
+            const messageResults = await checkAndProcessMessages(step.agent, conversationId, userId, userTier);
+            
+            if (messageResults.results.length > 0) {
+              agentMessageResults = `\n\n[Sub-tasks completed by ${step.agent}]:\n` + 
+                messageResults.results.map((r, i) => `${i + 1}. ${r}`).join('\n');
+            }
+          }
+        } catch (error: any) {
+          console.error(`  ⚠️  Agent message processing failed: ${error.message}`);
+        }
+        
+        // Build context with explicit tool usage instructions
+        let taskContext = step.action + agentMessageResults;
+        
+        // If tools are specified in the plan, explicitly instruct agent to use them
+        if (step.toolsUsed && step.toolsUsed.length > 0) {
+          taskContext += `\n\nIMPORTANT: You must use these tools to complete this task: ${step.toolsUsed.join(', ')}. Actually execute the tools - don't just describe what you would do.`;
+        }
+        
+        // Execute agent task with tool handling
         const agentResponse = await generateAgentResponse(
           step.agent as any,
-          [{ role: "user", content: step.action }],
+          [{ role: "user", content: taskContext }],
           false,
           userId
         );
         
-        const output = agentResponse.choices[0].message.content || '';
+        let choice = agentResponse.choices[0];
+        let output = choice.message.content || '';
+        let conversationMessages: any[] = [{ role: "user" as const, content: taskContext }];
+        
+        // Handle tool calls - loop until no more tool calls (support multiple rounds)
+        let maxToolRounds = 5; // Prevent infinite loops
+        while (choice.message.tool_calls && choice.message.tool_calls.length > 0 && maxToolRounds > 0) {
+          maxToolRounds--;
+          
+          console.log(`  🔧 Agent ${step.agent} calling ${choice.message.tool_calls.length} tool(s)`);
+          
+          // Add assistant message with tool calls
+          conversationMessages.push({
+            role: "assistant" as const,
+            content: choice.message.content || "",
+            tool_calls: choice.message.tool_calls
+          });
+          
+          // Execute all tools and collect results
+          const { executeFunction } = await import('./agentCoordinator');
+          
+          for (const toolCall of choice.message.tool_calls) {
+            const functionName = toolCall.function.name;
+            const functionArgs = JSON.parse(toolCall.function.arguments);
+            console.log(`    ⚙️  Executing: ${functionName}`, functionArgs);
+            
+            try {
+              const toolResult = await executeFunction(functionName, functionArgs, conversationId, step.agent);
+              console.log(`    ✅ ${functionName} result:`, toolResult);
+              
+              // Add tool response message
+              conversationMessages.push({
+                role: "tool" as const,
+                content: JSON.stringify(toolResult),
+                tool_call_id: toolCall.id
+              });
+              
+            } catch (toolError: any) {
+              console.error(`    ⚠️  ${functionName} failed: ${toolError.message}`);
+              // Add error as tool response
+              conversationMessages.push({
+                role: "tool" as const,
+                content: JSON.stringify({ error: toolError.message }),
+                tool_call_id: toolCall.id
+              });
+            }
+          }
+          
+          // Get next response from agent (may contain more tool calls)
+          const nextResponse = await generateAgentResponse(
+            step.agent as any,
+            conversationMessages as any,
+            false,
+            userId
+          );
+          
+          choice = nextResponse.choices[0];
+          output = choice.message.content || '';
+        }
+        
+        // Log if agent didn't use any tools
+        if (!agentResponse.choices[0].message.tool_calls) {
+          console.log(`  ℹ️  Agent ${step.agent} responded without using tools`);
+        }
+        
+        if (maxToolRounds === 0) {
+          console.warn(`  ⚠️  Max tool rounds reached for ${step.agent}`);
+        }
         
         const result = {
           agent: agentConfig.name,
