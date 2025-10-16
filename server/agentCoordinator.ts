@@ -353,6 +353,94 @@ const TASK_MANAGER_TOOLS = [
         required: ["query"]
       }
     }
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "send_email",
+      description: "Send an email to someone using Resend. Use this to send transactional emails, notifications, or communications.",
+      parameters: {
+        type: "object",
+        properties: {
+          to: {
+            type: "string",
+            description: "Recipient email address"
+          },
+          subject: {
+            type: "string",
+            description: "Email subject line"
+          },
+          content: {
+            type: "string",
+            description: "Email body content (supports HTML)"
+          },
+          from: {
+            type: "string",
+            description: "Optional sender email address (uses configured default if not provided)"
+          }
+        },
+        required: ["to", "subject", "content"]
+      }
+    }
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "get_calendar",
+      description: "Get upcoming meetings and schedules from the user's calendar",
+      parameters: {
+        type: "object",
+        properties: {
+          days: {
+            type: "number",
+            description: "Number of days ahead to look (default: 7)"
+          }
+        }
+      }
+    }
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "create_contact",
+      description: "Create a new contact in the CRM system",
+      parameters: {
+        type: "object",
+        properties: {
+          firstName: { type: "string", description: "Contact's first name" },
+          lastName: { type: "string", description: "Contact's last name" },
+          email: { type: "string", description: "Contact's email address" },
+          phone: { type: "string", description: "Contact's phone number" },
+          companyId: { type: "string", description: "Associated company ID" },
+          jobTitle: { type: "string", description: "Contact's job title/position" },
+          notes: { type: "string", description: "Additional notes about the contact" }
+        },
+        required: ["firstName", "lastName"]
+      }
+    }
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "add_research",
+      description: "Add research notes, findings, or information about a contact, company, or project",
+      parameters: {
+        type: "object",
+        properties: {
+          title: { type: "string", description: "Research title" },
+          summary: { type: "string", description: "Research summary and key findings" },
+          researchType: { 
+            type: "string", 
+            enum: ["market", "competitor", "customer", "technical"],
+            description: "Type of research"
+          },
+          contactId: { type: "string", description: "Related contact ID (optional)" },
+          companyId: { type: "string", description: "Related company ID (optional)" },
+          sources: { type: "array", items: { type: "string" }, description: "Source URLs or references" }
+        },
+        required: ["title", "summary"]
+      }
+    }
   }
 ];
 
@@ -501,6 +589,119 @@ export async function executeFunction(
           }
           return { success: false, error: `Web search failed: ${searchError.message}` };
         }
+      
+      case "send_email":
+        // Send email using Resend integration
+        try {
+          const { Resend } = await import('resend');
+          
+          // Get credentials from Replit connectors
+          const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
+          const xReplitToken = process.env.REPL_IDENTITY 
+            ? 'repl ' + process.env.REPL_IDENTITY 
+            : process.env.WEB_REPL_RENEWAL 
+            ? 'depl ' + process.env.WEB_REPL_RENEWAL 
+            : null;
+
+          if (!xReplitToken) {
+            return { success: false, error: 'Resend not configured - missing authentication token' };
+          }
+
+          const connectionSettings = await fetch(
+            'https://' + hostname + '/api/v2/connection?include_secrets=true&connector_names=resend',
+            {
+              headers: {
+                'Accept': 'application/json',
+                'X_REPLIT_TOKEN': xReplitToken
+              }
+            }
+          ).then(res => res.json()).then(data => data.items?.[0]);
+
+          if (!connectionSettings || !connectionSettings.settings.api_key) {
+            return { success: false, error: 'Resend not connected. Please configure Resend integration.' };
+          }
+
+          const resend = new Resend(connectionSettings.settings.api_key);
+          const fromEmail = args.from || connectionSettings.settings.from_email;
+          
+          if (!fromEmail) {
+            return { success: false, error: 'No from email address configured. Please set up Resend with a from address or provide one in the request.' };
+          }
+
+          const { data, error } = await resend.emails.send({
+            from: fromEmail,
+            to: [args.to],
+            subject: args.subject,
+            html: args.content,
+          });
+
+          if (error) {
+            return { success: false, error: `Email failed: ${error.message}` };
+          }
+
+          return { 
+            success: true, 
+            emailId: data.id,
+            message: `Email sent successfully to ${args.to}` 
+          };
+        } catch (emailError: any) {
+          return { success: false, error: `Email error: ${emailError.message}` };
+        }
+      
+      case "get_calendar":
+        // Get upcoming meetings and schedules
+        const days = args.days || 7;
+        const futureDate = new Date();
+        futureDate.setDate(futureDate.getDate() + days);
+        
+        const upcomingMeetings = await storage.getMeetings();
+        const upcomingSchedules = await storage.getSchedules();
+        
+        // Filter to only upcoming events
+        const filteredMeetings = upcomingMeetings.filter(m => 
+          m.meetingDate && new Date(m.meetingDate) <= futureDate
+        );
+        const filteredSchedules = upcomingSchedules.filter(s => 
+          s.scheduledTime && new Date(s.scheduledTime) <= futureDate && s.isActive
+        );
+        
+        return { 
+          success: true, 
+          meetings: filteredMeetings,
+          schedules: filteredSchedules,
+          message: `Found ${filteredMeetings.length} meetings and ${filteredSchedules.length} schedules in the next ${days} days`
+        };
+      
+      case "create_contact":
+        // Create a CRM contact
+        const contact = await storage.createContact({
+          firstName: args.firstName,
+          lastName: args.lastName,
+          email: args.email || null,
+          phone: args.phone || null,
+          companyId: args.companyId || null,
+          jobTitle: args.jobTitle || null,
+          notes: args.notes || null,
+          userId: "default_user"
+        });
+        return { success: true, contact, message: `Contact "${args.firstName} ${args.lastName}" created successfully` };
+      
+      case "add_research":
+        // Add research notes
+        const researchNote = await storage.createResearch({
+          title: args.title,
+          summary: args.summary,
+          researchType: args.researchType || null,
+          contactId: args.contactId || null,
+          companyId: args.companyId || null,
+          sources: args.sources || [],
+          userId: "default_user"
+        });
+        return { 
+          success: true, 
+          research: researchNote, 
+          message: `Research note "${args.title}" added successfully` 
+        };
       
       default:
         return { success: false, error: "Unknown function" };
