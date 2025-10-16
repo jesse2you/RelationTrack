@@ -42,3 +42,25 @@ The platform operates as a single, unified application combining frontend, backe
 - **Database:** PostgreSQL (Replit built-in).
 - **Authentication:** Replit Auth with session management.
 - **UI Components:** Lucide Icons.
+
+## 🚀 PRE-LAUNCH CHECKLIST REMINDER
+**IMPORTANT**: Before launching publicly, review **PRE_LAUNCH_CHECKLIST.md** for critical legal, security, and compliance items.
+
+**Top Priorities:**
+1. ⚖️ Create Terms of Service & Privacy Policy (legal requirement!)
+2. 🔒 Verify all API keys are secured and cost limits set
+3. 💾 Set up database backup strategy
+4. 🧪 Test all features with real users (beta testing)
+5. 📊 Set up error monitoring and alerts
+
+**Red Flags - Don't Launch Without:**
+- Terms of Service / Privacy Policy → Legal liability
+- API cost limits → Bankruptcy risk  
+- Database backups → Data loss risk
+- Admin panel security → Hacking risk
+- Content moderation → Harmful content risk
+
+**Professional Help Needed:**
+- Lawyer (Terms, Privacy Policy, business entity)
+- Security audit (penetration testing)
+- Insurance (AI product liability)
