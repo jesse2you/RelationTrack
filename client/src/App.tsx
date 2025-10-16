@@ -4,6 +4,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import Footer from "@/components/Footer";
 import Home from "@/pages/Home";
 import Admin from "@/pages/Admin";
 import Organization from "@/pages/Organization";
@@ -31,8 +32,13 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider defaultTheme="dark">
         <TooltipProvider>
+          <div className="flex flex-col min-h-screen">
+            <div className="flex-1">
+              <Router />
+            </div>
+            <Footer />
+          </div>
           <Toaster />
-          <Router />
         </TooltipProvider>
       </ThemeProvider>
     </QueryClientProvider>

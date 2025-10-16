@@ -212,4 +212,7 @@ Built with Replit's powerful development platform and integrated services.
 
 ---
 
+**Brought to you by Jesse L.**  
+*Done different. 🐑*
+
 **Made with ❤️ for autonomous AI learning**
