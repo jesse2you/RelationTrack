@@ -204,10 +204,30 @@ export const TIERS: Record<string, TierConfig> = {
   },
 };
 
+// Map tier tool categories to actual tool names
+const toolCategoryMap: Record<string, string[]> = {
+  'task_management': ['create_task', 'create_meeting', 'create_schedule', 'get_tasks', 'update_task', 'delete_task'],
+  'web_search_basic': ['web_search'],
+  'web_search_unlimited': ['web_search', 'news_search'],
+  'news_aggregation': ['get_news'],
+  'calendar_basic': ['create_calendar_event', 'get_calendar_events'],
+  'gmail_basic': ['send_email', 'read_emails'],
+  'gmail_advanced': ['send_email', 'read_emails', 'search_emails', 'manage_labels'],
+};
+
 // Check if user has access to a specific tool
 export function hasToolAccess(userTier: string, toolName: string): boolean {
   const tier = TIERS[userTier] || TIERS.free;
-  return tier.tools.some(tool => tool.name === toolName || toolName.startsWith(tool.name.split('_')[0]));
+  
+  // Check if any tool category in the tier includes this specific tool
+  for (const tierTool of tier.tools) {
+    const actualTools = toolCategoryMap[tierTool.name] || [tierTool.name];
+    if (actualTools.includes(toolName)) {
+      return true;
+    }
+  }
+  
+  return false;
 }
 
 // Get user's tier configuration
