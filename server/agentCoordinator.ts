@@ -454,17 +454,51 @@ export async function executeFunction(
         };
       
       case "web_search":
-        // Web search capability - searches online for current information
+      case "web_search_basic":
+      case "web_search_unlimited":
+        // Web search capability - searches online for current information using Tavily API
         try {
-          // For now, return a placeholder that indicates web search capability
-          // This will be replaced with actual search API integration
+          const { tavily } = await import("@tavily/core");
+          const tavilyClient = tavily({ apiKey: process.env.TAVILY_API_KEY });
+          
+          // Determine search depth based on tool variant
+          const isUnlimited = functionName === "web_search_unlimited";
+          const searchDepth = isUnlimited ? "advanced" : "basic";
+          const maxResults = isUnlimited ? 10 : 5;
+          
+          // Perform the search
+          const searchResults = await tavilyClient.search(args.query, {
+            searchDepth: args.depth || searchDepth,
+            maxResults: args.maxResults || maxResults,
+            includeAnswer: true, // Get AI-generated answer
+            includeRawContent: false, // Don't need full HTML
+          });
+          
+          // Format results for the agent
+          const formattedResults = searchResults.results.map((result: any) => ({
+            title: result.title,
+            url: result.url,
+            content: result.content,
+            score: result.score
+          }));
+          
           return { 
             success: true, 
             query: args.query,
-            message: `Web search capability enabled. Searching for: "${args.query}"`,
-            note: "Full web search integration coming soon - will access live news, websites, and real-time data"
+            answer: searchResults.answer, // AI-generated answer from Tavily
+            results: formattedResults,
+            resultsCount: formattedResults.length,
+            message: `Found ${formattedResults.length} results for: "${args.query}"`
           };
         } catch (searchError: any) {
+          // Fallback if API key is missing or search fails
+          if (searchError.message?.includes('API key')) {
+            return { 
+              success: false, 
+              error: 'Web search API key not configured. Please add TAVILY_API_KEY to secrets.',
+              query: args.query
+            };
+          }
           return { success: false, error: `Web search failed: ${searchError.message}` };
         }
       
