@@ -10,6 +10,7 @@ import {
   getPendingMessagesForAgent,
   processAgentMessage 
 } from "./agentCommunication";
+import { telemetry } from "./telemetry";
 
 const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
@@ -310,7 +311,8 @@ export async function executePlan(
   userMessage: string,
   conversationId: string,
   userId: string = 'default_user',
-  userTier: string = 'free'
+  userTier: string = 'free',
+  sessionId?: string
 ): Promise<OrchestrationResult> {
   
   console.log(`🚀 Executing orchestration plan (${plan.executionMode} mode)...`);
@@ -369,12 +371,27 @@ export async function executePlan(
         taskContext += `\n\nIMPORTANT: You must use these tools to complete this task: ${step.toolsUsed.join(', ')}. Actually execute the tools - don't just describe what you would do.`;
       }
       
+      // Track agent execution timing
+      const agentStartTime = Date.now();
       const agentResponse = await generateAgentResponse(
         step.agent as any,
         [{ role: "user", content: taskContext }],
         false, // Non-streaming for orchestration
         userId
       );
+      const agentDuration = Date.now() - agentStartTime;
+      
+      // Extract token usage
+      const tokenUsage = agentResponse.usage ? {
+        input: agentResponse.usage.prompt_tokens,
+        output: agentResponse.usage.completion_tokens,
+        total: agentResponse.usage.total_tokens
+      } : undefined;
+      
+      // Track agent execution
+      if (sessionId) {
+        telemetry.trackAgentExecution(sessionId, step.agent, agentDuration, tokenUsage, true);
+      }
       
       let choice = agentResponse.choices[0];
       let output = choice.message.content || '';
@@ -402,9 +419,16 @@ export async function executePlan(
           const functionArgs = JSON.parse(toolCall.function.arguments);
           console.log(`    ⚙️  Executing: ${functionName}`, functionArgs);
           
+          const toolStartTime = Date.now();
           try {
             const toolResult = await executeFunction(functionName, functionArgs, conversationId, step.agent);
+            const toolDuration = Date.now() - toolStartTime;
             console.log(`    ✅ ${functionName} result:`, toolResult);
+            
+            // Track tool execution
+            if (sessionId) {
+              telemetry.trackToolExecution(sessionId, functionName, step.agent, toolDuration, true);
+            }
             
             // Add tool response message
             conversationMessages.push({
@@ -414,7 +438,14 @@ export async function executePlan(
             });
             
           } catch (toolError: any) {
+            const toolDuration = Date.now() - toolStartTime;
             console.error(`    ⚠️  ${functionName} failed: ${toolError.message}`);
+            
+            // Track tool execution error
+            if (sessionId) {
+              telemetry.trackToolExecution(sessionId, functionName, step.agent, toolDuration, false, toolError.message);
+            }
+            
             // Add error as tool response
             conversationMessages.push({
               role: "tool" as const,
@@ -463,6 +494,12 @@ export async function executePlan(
       
     } catch (error: any) {
       console.error(`  ❌ Step ${step.stepNumber} failed:`, error.message);
+      
+      // Track error
+      if (sessionId) {
+        telemetry.trackError(sessionId, error.message, step.agent);
+      }
+      
       resultsMap.set(step.stepNumber, {
         agent: agentConfig.name,
         output: `Error: ${error.message}`,
@@ -546,23 +583,40 @@ export async function orchestrate(
   userTier: string = 'free'
 ): Promise<OrchestrationResult> {
   
-  // Step 1: Analyze and create plan
-  const plan = await analyzeAndPlan(userMessage, userId, userTier);
+  // Start telemetry session
+  const sessionId = `session_${conversationId}_${Date.now()}`;
+  telemetry.startSession(sessionId, userId, conversationId);
+  telemetry.trackOrchestrationStart(sessionId);
   
-  // Step 2: Execute the plan
-  const result = await executePlan(plan, userMessage, conversationId, userId, userTier);
-  
-  // Step 3: Log orchestration
-  await storage.createAgentInteraction({
-    userId,
-    conversationId,
-    primaryAgent: plan.primaryAgent,
-    collaboratingAgents: plan.collaboratingAgents,
-    interactionType: 'collaborative',
-    outcome: `Orchestrated: ${plan.executionSteps.length} steps completed`
-  });
-  
-  return result;
+  try {
+    // Step 1: Analyze and create plan
+    const plan = await analyzeAndPlan(userMessage, userId, userTier);
+    
+    // Step 2: Execute the plan
+    const result = await executePlan(plan, userMessage, conversationId, userId, userTier, sessionId);
+    
+    // Step 3: Log orchestration
+    await storage.createAgentInteraction({
+      userId,
+      conversationId,
+      primaryAgent: plan.primaryAgent,
+      collaboratingAgents: plan.collaboratingAgents,
+      interactionType: 'collaborative',
+      outcome: `Orchestrated: ${plan.executionSteps.length} steps completed`
+    });
+    
+    // Track orchestration success
+    telemetry.trackOrchestrationEnd(sessionId, true);
+    await telemetry.endSession(sessionId);
+    
+    return result;
+  } catch (error: any) {
+    // Track orchestration failure
+    telemetry.trackOrchestrationEnd(sessionId, false, error.message);
+    telemetry.trackError(sessionId, error.message);
+    await telemetry.endSession(sessionId);
+    throw error;
+  }
 }
 
 /**
@@ -575,6 +629,11 @@ export async function orchestrateStreaming(
   userTier: string = 'free',
   onEvent: (event: any) => void
 ): Promise<void> {
+  
+  // Start telemetry session
+  const sessionId = `session_${conversationId}_${Date.now()}`;
+  telemetry.startSession(sessionId, userId, conversationId);
+  telemetry.trackOrchestrationStart(sessionId);
   
   try {
     // Step 1: Analyze and create plan
@@ -638,12 +697,24 @@ export async function orchestrateStreaming(
         }
         
         // Execute agent task with tool handling
+        const agentStartTime = Date.now();
         const agentResponse = await generateAgentResponse(
           step.agent as any,
           [{ role: "user", content: taskContext }],
           false,
           userId
         );
+        const agentDuration = Date.now() - agentStartTime;
+        
+        // Extract token usage
+        const tokenUsage = agentResponse.usage ? {
+          input: agentResponse.usage.prompt_tokens,
+          output: agentResponse.usage.completion_tokens,
+          total: agentResponse.usage.total_tokens
+        } : undefined;
+        
+        // Track agent execution
+        telemetry.trackAgentExecution(sessionId, step.agent, agentDuration, tokenUsage, true);
         
         let choice = agentResponse.choices[0];
         let output = choice.message.content || '';
@@ -671,9 +742,14 @@ export async function orchestrateStreaming(
             const functionArgs = JSON.parse(toolCall.function.arguments);
             console.log(`    ⚙️  Executing: ${functionName}`, functionArgs);
             
+            const toolStartTime = Date.now();
             try {
               const toolResult = await executeFunction(functionName, functionArgs, conversationId, step.agent);
+              const toolDuration = Date.now() - toolStartTime;
               console.log(`    ✅ ${functionName} result:`, toolResult);
+              
+              // Track tool execution
+              telemetry.trackToolExecution(sessionId, functionName, step.agent, toolDuration, true);
               
               // Add tool response message
               conversationMessages.push({
@@ -683,7 +759,12 @@ export async function orchestrateStreaming(
               });
               
             } catch (toolError: any) {
+              const toolDuration = Date.now() - toolStartTime;
               console.error(`    ⚠️  ${functionName} failed: ${toolError.message}`);
+              
+              // Track tool execution error
+              telemetry.trackToolExecution(sessionId, functionName, step.agent, toolDuration, false, toolError.message);
+              
               // Add error as tool response
               conversationMessages.push({
                 role: "tool" as const,
@@ -849,7 +930,16 @@ Final Answer:`;
       outcome: `Orchestrated: ${plan.executionSteps.length} steps completed`
     });
     
+    // Track orchestration success and end session
+    telemetry.trackOrchestrationEnd(sessionId, true);
+    await telemetry.endSession(sessionId);
+    
   } catch (error: any) {
+    // Track orchestration failure
+    telemetry.trackOrchestrationEnd(sessionId, false, error.message);
+    telemetry.trackError(sessionId, error.message);
+    await telemetry.endSession(sessionId);
+    
     onEvent({ type: 'error', error: error.message });
     throw error;
   }
