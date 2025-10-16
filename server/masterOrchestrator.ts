@@ -366,7 +366,45 @@ export async function executePlan(
         userId
       );
       
-      const output = agentResponse.choices[0].message.content || '';
+      const choice = agentResponse.choices[0];
+      let output = choice.message.content || '';
+      
+      // Handle tool calls (for Task Manager and collaboration tools)
+      if (choice.message.tool_calls && choice.message.tool_calls.length > 0) {
+        const toolCall = choice.message.tool_calls[0];
+        const functionName = toolCall.function.name;
+        
+        console.log(`  🔧 Agent ${step.agent} calling tool: ${functionName}`);
+        
+        try {
+          const functionArgs = JSON.parse(toolCall.function.arguments);
+          
+          // Execute the tool
+          const { executeFunction } = await import('./agentCoordinator');
+          const toolResult = await executeFunction(functionName, functionArgs, conversationId, step.agent);
+          
+          // Get final response from agent with tool result
+          const followUpMessages = [
+            { role: "user" as const, content: taskContext },
+            { role: "assistant" as const, content: choice.message.content || "", tool_calls: choice.message.tool_calls },
+            { role: "tool" as const, content: JSON.stringify(toolResult), tool_call_id: toolCall.id }
+          ];
+          
+          const finalResponse = await generateAgentResponse(
+            step.agent as any,
+            followUpMessages as any,
+            false,
+            userId
+          );
+          
+          output = finalResponse.choices[0].message.content || '';
+          console.log(`  ✅ Tool ${functionName} executed successfully`);
+          
+        } catch (toolError: any) {
+          console.error(`  ⚠️  Tool execution failed: ${toolError.message}`);
+          output = `${choice.message.content || ''}\n\n[Note: Tool execution encountered an issue: ${toolError.message}]`;
+        }
+      }
       
       resultsMap.set(step.stepNumber, {
         agent: agentConfig.name,
