@@ -232,9 +232,21 @@ export class DbStorage implements IStorage {
 
   // Messages
   async getMessages(conversationId: string): Promise<Message[]> {
-    return await db.select().from(messages)
+    const cacheKey = CacheService.conversationMessagesKey(conversationId);
+    const cached = cache.get<Message[]>(cacheKey);
+    
+    if (cached) {
+      return cached;
+    }
+    
+    const result = await db.select().from(messages)
       .where(eq(messages.conversationId, conversationId))
       .orderBy(messages.createdAt);
+    
+    // Cache for 2 minutes (messages update frequently)
+    cache.set(cacheKey, result, 2 * 60 * 1000);
+    
+    return result;
   }
 
   async createMessage(data: InsertMessage): Promise<Message> {
@@ -244,6 +256,9 @@ export class DbStorage implements IStorage {
     await db.update(conversations)
       .set({ updatedAt: new Date() })
       .where(eq(conversations.id, data.conversationId));
+    
+    // Invalidate message cache for this conversation
+    cache.invalidate(CacheService.conversationMessagesKey(data.conversationId));
     
     return result[0];
   }
@@ -735,6 +750,10 @@ export class DbStorage implements IStorage {
   // Analytics & Telemetry
   async createAnalyticsEvent(data: InsertAnalyticsEvent): Promise<AnalyticsEvent> {
     const [event] = await db.insert(analyticsEvents).values(data).returning();
+    
+    // Invalidate all analytics caches since new data is available
+    cache.invalidatePattern('analytics_');
+    
     return event;
   }
 
@@ -745,6 +764,17 @@ export class DbStorage implements IStorage {
     toolName?: string;
     limit?: number;
   }): Promise<AnalyticsEvent[]> {
+    // Create cache key from filters
+    const cacheKey = CacheService.analyticsEventsKey(
+      filters.userId || 'all',
+      `${filters.eventType || 'all'}_${filters.agentId || 'all'}_${filters.toolName || 'all'}_${filters.limit || 'all'}`
+    );
+    
+    const cached = cache.get<AnalyticsEvent[]>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+    
     const conditions = [];
     
     if (filters.userId) {
@@ -772,14 +802,31 @@ export class DbStorage implements IStorage {
       query = query.limit(filters.limit) as any;
     }
 
-    return await query;
+    const result = await query;
+    
+    // Cache for 1 minute (analytics update frequently)
+    cache.set(cacheKey, result, 60 * 1000);
+    
+    return result;
   }
 
   async getDailyMetrics(days: number = 30): Promise<DailyMetrics[]> {
-    return await db.select()
+    const cacheKey = `daily_metrics:${days}`;
+    const cached = cache.get<DailyMetrics[]>(cacheKey);
+    
+    if (cached) {
+      return cached;
+    }
+    
+    const result = await db.select()
       .from(dailyMetrics)
       .orderBy(desc(dailyMetrics.date))
       .limit(days);
+    
+    // Cache for 5 minutes (daily metrics don't change often)
+    cache.set(cacheKey, result, 5 * 60 * 1000);
+    
+    return result;
   }
 
   async createOrUpdateDailyMetrics(date: Date, data: Partial<InsertDailyMetrics>): Promise<DailyMetrics> {
@@ -791,6 +838,10 @@ export class DbStorage implements IStorage {
         set: data,
       })
       .returning();
+    
+    // Invalidate daily metrics cache
+    cache.invalidatePattern('daily_metrics');
+    
     return metric;
   }
 }
