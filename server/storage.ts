@@ -59,6 +59,7 @@ import {
   type DailyMetrics
 } from "@shared/schema";
 import { eq, desc, and } from "drizzle-orm";
+import { cache, CacheService } from "./cache";
 
 export interface IStorage {
   // Users (for authentication)
@@ -247,26 +248,45 @@ export class DbStorage implements IStorage {
     return result[0];
   }
 
-  // User Settings
+  // User Settings (with caching)
   async getUserSettings(userId: string = 'default_user'): Promise<UserSettings | undefined> {
+    const cacheKey = CacheService.userSettingsKey(userId);
+    const cached = cache.get<UserSettings>(cacheKey);
+    
+    if (cached) {
+      return cached;
+    }
+    
     const result = await db.select().from(userSettings).where(eq(userSettings.userId, userId));
-    return result[0];
+    const settings = result[0];
+    
+    if (settings) {
+      cache.set(cacheKey, settings);
+    }
+    
+    return settings;
   }
 
   async createOrUpdateUserSettings(data: InsertUserSettings): Promise<UserSettings> {
     const userId = data.userId || 'default_user';
     const existing = await this.getUserSettings(userId);
     
+    let result: UserSettings;
     if (existing) {
-      const result = await db.update(userSettings)
+      const updated = await db.update(userSettings)
         .set({ ...data, updatedAt: new Date() })
         .where(eq(userSettings.userId, userId))
         .returning();
-      return result[0];
+      result = updated[0];
     } else {
-      const result = await db.insert(userSettings).values({ ...data, userId }).returning();
-      return result[0];
+      const inserted = await db.insert(userSettings).values({ ...data, userId }).returning();
+      result = inserted[0];
     }
+    
+    // Invalidate cache
+    cache.invalidate(CacheService.userSettingsKey(userId));
+    
+    return result;
   }
 
   // User Feedback
@@ -404,8 +424,21 @@ export class DbStorage implements IStorage {
 
   // User Tiers
   async getUserTier(userId: string = 'default_user'): Promise<UserTier | undefined> {
+    const cacheKey = CacheService.userTierKey(userId);
+    const cached = cache.get<UserTier>(cacheKey);
+    
+    if (cached) {
+      return cached;
+    }
+    
     const result = await db.select().from(userTiers).where(eq(userTiers.userId, userId));
-    return result[0];
+    const tier = result[0];
+    
+    if (tier) {
+      cache.set(cacheKey, tier, 10 * 60 * 1000); // Cache for 10 minutes
+    }
+    
+    return tier;
   }
 
   async createOrUpdateUserTier(data: InsertUserTier): Promise<UserTier> {
@@ -420,6 +453,10 @@ export class DbStorage implements IStorage {
         },
       })
       .returning();
+    
+    // Invalidate cache
+    cache.invalidate(CacheService.userTierKey(data.userId || 'default_user'));
+    
     return result[0];
   }
 
