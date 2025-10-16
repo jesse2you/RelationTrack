@@ -28,6 +28,7 @@ The platform operates as a single, unified application combining frontend, backe
 - **Agent Routing:** Keyword-based scoring selects the most appropriate agent for a task, with the Head Coordinator serving as a fallback.
 - **Parallel Execution Engine:** Supports sequential, parallel, and mixed execution modes with a DAG-based dependency resolver and cycle detection for efficient multi-agent workflows.
 - **Agent-to-Agent Communication (Phase 3.2):** Agents can create asynchronous sub-tasks for other agents during execution via the `delegate_task` tool. Messages are stored in the database and processed automatically during orchestration, enabling true autonomous collaboration.
+- **Tool Execution System:** Both streaming (SSE) and non-streaming orchestration paths properly handle tool calls with explicit agent instructions, multi-tool support, and multiple execution rounds. Agents receive explicit "USE THESE TOOLS" directives when tools are specified in execution plans, ensuring actual tool execution rather than just descriptions.
 - **Data Persistence:** All conversations and user data are stored in a PostgreSQL database.
 
 **Project Structure:**
