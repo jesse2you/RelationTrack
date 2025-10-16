@@ -44,11 +44,23 @@ const TOOLS: Record<string, ToolConfig> = {
     category: 'search',
   },
   
-  // Productivity Tools
-  task_management: {
-    name: 'task_management',
-    displayName: 'Task Management',
-    description: 'Create and manage tasks, meetings, schedules',
+  // Productivity Tools - Specific tools instead of categories
+  create_task: {
+    name: 'create_task',
+    displayName: 'Create Task',
+    description: 'Create new tasks',
+    category: 'productivity',
+  },
+  create_meeting: {
+    name: 'create_meeting',
+    displayName: 'Create Meeting',
+    description: 'Schedule meetings',
+    category: 'productivity',
+  },
+  create_schedule: {
+    name: 'create_schedule',
+    displayName: 'Create Schedule',
+    description: 'Create schedules',
     category: 'productivity',
   },
   calendar_basic: {
@@ -142,7 +154,9 @@ export const TIERS: Record<string, TierConfig> = {
     ],
     tools: [
       TOOLS.web_search_basic,
-      TOOLS.task_management,
+      TOOLS.create_task,
+      TOOLS.create_meeting,
+      TOOLS.create_schedule,
     ],
   },
   
@@ -165,7 +179,9 @@ export const TIERS: Record<string, TierConfig> = {
     tools: [
       TOOLS.web_search_unlimited,
       TOOLS.news_aggregation,
-      TOOLS.task_management,
+      TOOLS.create_task,
+      TOOLS.create_meeting,
+      TOOLS.create_schedule,
       TOOLS.calendar_basic,
       TOOLS.gmail_basic,
     ],
@@ -191,7 +207,9 @@ export const TIERS: Record<string, TierConfig> = {
     tools: [
       TOOLS.web_search_unlimited,
       TOOLS.news_aggregation,
-      TOOLS.task_management,
+      TOOLS.create_task,
+      TOOLS.create_meeting,
+      TOOLS.create_schedule,
       TOOLS.gmail_advanced,
       TOOLS.notion_integration,
       TOOLS.slack_integration,
@@ -204,30 +222,10 @@ export const TIERS: Record<string, TierConfig> = {
   },
 };
 
-// Map tier tool categories to actual tool names
-const toolCategoryMap: Record<string, string[]> = {
-  'task_management': ['create_task', 'create_meeting', 'create_schedule', 'get_tasks', 'update_task', 'delete_task'],
-  'web_search_basic': ['web_search'],
-  'web_search_unlimited': ['web_search', 'news_search'],
-  'news_aggregation': ['get_news'],
-  'calendar_basic': ['create_calendar_event', 'get_calendar_events'],
-  'gmail_basic': ['send_email', 'read_emails'],
-  'gmail_advanced': ['send_email', 'read_emails', 'search_emails', 'manage_labels'],
-};
-
 // Check if user has access to a specific tool
 export function hasToolAccess(userTier: string, toolName: string): boolean {
   const tier = TIERS[userTier] || TIERS.free;
-  
-  // Check if any tool category in the tier includes this specific tool
-  for (const tierTool of tier.tools) {
-    const actualTools = toolCategoryMap[tierTool.name] || [tierTool.name];
-    if (actualTools.includes(toolName)) {
-      return true;
-    }
-  }
-  
-  return false;
+  return tier.tools.some(tool => tool.name === toolName);
 }
 
 // Get user's tier configuration

@@ -54,29 +54,12 @@ export async function analyzeAndPlan(
   userTier: string = 'free'
 ): Promise<ExecutionPlan> {
   
-  console.log('🧠 Master Orchestrator analyzing request...');
+  console.log('🧠 Master Orchestrator analyzing request... [CODE UPDATED]');
   
   // Get user's tier configuration
   const tierConfig = getUserTierConfig(userTier);
   const availableAgents = tierConfig.agentAccess;
-  
-  // Map tier tool categories to actual tool names
-  const toolCategoryMap: Record<string, string[]> = {
-    'task_management': ['create_task', 'create_meeting', 'create_schedule', 'get_tasks', 'update_task', 'delete_task'],
-    'web_search_basic': ['web_search'],
-    'web_search_unlimited': ['web_search', 'news_search'],
-    'news_aggregation': ['get_news'],
-    'calendar_basic': ['create_calendar_event', 'get_calendar_events'],
-    'gmail_basic': ['send_email', 'read_emails'],
-    'gmail_advanced': ['send_email', 'read_emails', 'search_emails', 'manage_labels'],
-  };
-  
-  // Expand categories to actual tool names
-  const availableTools: string[] = [];
-  tierConfig.tools.forEach(tool => {
-    const actualTools = toolCategoryMap[tool.name] || [tool.name];
-    availableTools.push(...actualTools);
-  });
+  const availableTools = tierConfig.tools.map(t => t.name);
   
   console.log('📦 Available tools for planning:', availableTools);
   
@@ -156,45 +139,6 @@ IMPORTANT:
     estimatedDuration: planData.estimatedDuration || 'unknown',
     executionMode: planData.executionMode || 'mixed', // Default to mixed (optimal)
   };
-
-  // Fix: Translate tool categories to actual tool names
-  // The planning LLM might use categories like "task_management", we need actual tool names like "create_task"
-  console.log('🔄 BEFORE translation:', JSON.stringify(plan.executionSteps.map(s => ({ action: s.action, toolsUsed: s.toolsUsed })), null, 2));
-  
-  plan.executionSteps.forEach(step => {
-    if (step.toolsUsed) {
-      const translatedTools: string[] = [];
-      step.toolsUsed.forEach(tool => {
-        // If it's a category, translate to the first actual tool in that category
-        const categoryTools = toolCategoryMap[tool];
-        if (categoryTools && categoryTools.length > 0) {
-          // For task creation, use create_task specifically
-          if (tool === 'task_management') {
-            // Intelligently pick the right tool based on the action
-            if (step.action.toLowerCase().includes('meeting')) {
-              console.log(`  ✅ Translating ${tool} → create_meeting (detected 'meeting' in action)`);
-              translatedTools.push('create_meeting');
-            } else if (step.action.toLowerCase().includes('schedule')) {
-              console.log(`  ✅ Translating ${tool} → create_schedule (detected 'schedule' in action)`);
-              translatedTools.push('create_schedule');
-            } else {
-              console.log(`  ✅ Translating ${tool} → create_task (default for task_management)`);
-              translatedTools.push('create_task'); // Default to create_task
-            }
-          } else {
-            console.log(`  ✅ Translating ${tool} → ${categoryTools[0]}`);
-            translatedTools.push(categoryTools[0]); // Use first tool from category
-          }
-        } else {
-          console.log(`  ℹ️  Keeping tool as-is: ${tool}`);
-          translatedTools.push(tool); // Keep as-is if not a category
-        }
-      });
-      step.toolsUsed = translatedTools;
-    }
-  });
-  
-  console.log('🔄 AFTER translation:', JSON.stringify(plan.executionSteps.map(s => ({ action: s.action, toolsUsed: s.toolsUsed })), null, 2));
 
   // Validate agent IDs and tools in the plan
   validateExecutionPlan(plan, availableAgents, availableTools);
