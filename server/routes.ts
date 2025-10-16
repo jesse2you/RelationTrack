@@ -21,6 +21,7 @@ import {
 import { setupAuth, isAuthenticated, isAdmin } from "./replitAuth";
 import OpenAI from "openai";
 import { analyzeAndRoute, generateAgentResponse, AGENTS, executeFunction, extractAndSaveMemories } from "./agentCoordinator";
+import { cache } from "./cache";
 
 const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
@@ -702,6 +703,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Admin analytics error:", error);
       res.status(500).json({ message: "Failed to fetch analytics" });
+    }
+  });
+
+  // Admin: Get cache performance metrics
+  app.get("/api/admin/cache-metrics", isAdmin, async (_req, res) => {
+    try {
+      const metrics = cache.getMetrics();
+      const stats = cache.getStats();
+      
+      res.json({
+        metrics: {
+          ...metrics,
+          hitRatioFormatted: `${metrics.hitRatio.toFixed(2)}%`
+        },
+        stats,
+        recommendations: []
+      });
+    } catch (error) {
+      console.error("Cache metrics error:", error);
+      res.status(500).json({ message: "Failed to fetch cache metrics" });
     }
   });
 

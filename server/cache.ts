@@ -7,9 +7,35 @@ interface CacheEntry<T> {
   ttl: number; // Time to live in milliseconds
 }
 
+interface CacheMetrics {
+  hits: number;
+  misses: number;
+  sets: number;
+  invalidations: number;
+  hitRatio: number; // Percentage (0-100)
+}
+
 class CacheService {
   private cache = new Map<string, CacheEntry<any>>();
   private readonly DEFAULT_TTL = 5 * 60 * 1000; // 5 minutes default
+  private readonly isDevelopment = process.env.NODE_ENV !== 'production';
+  
+  // Metrics tracking
+  private metrics = {
+    hits: 0,
+    misses: 0,
+    sets: 0,
+    invalidations: 0
+  };
+
+  /**
+   * Log only in development environment
+   */
+  private log(message: string): void {
+    if (this.isDevelopment) {
+      console.log(message);
+    }
+  }
 
   /**
    * Get cached data if valid, otherwise return null
@@ -18,6 +44,7 @@ class CacheService {
     const entry = this.cache.get(key);
     
     if (!entry) {
+      this.metrics.misses++;
       return null;
     }
 
@@ -25,10 +52,12 @@ class CacheService {
     const now = Date.now();
     if (now - entry.timestamp > entry.ttl) {
       this.cache.delete(key);
+      this.metrics.misses++;
       return null;
     }
 
-    console.log(`🎯 Cache HIT: ${key}`);
+    this.metrics.hits++;
+    this.log(`🎯 Cache HIT: ${key}`);
     return entry.data as T;
   }
 
@@ -41,7 +70,8 @@ class CacheService {
       timestamp: Date.now(),
       ttl
     });
-    console.log(`💾 Cache SET: ${key} (TTL: ${ttl}ms)`);
+    this.metrics.sets++;
+    this.log(`💾 Cache SET: ${key} (TTL: ${ttl}ms)`);
   }
 
   /**
@@ -50,7 +80,8 @@ class CacheService {
   invalidate(key: string): void {
     const deleted = this.cache.delete(key);
     if (deleted) {
-      console.log(`🗑️  Cache INVALIDATE: ${key}`);
+      this.metrics.invalidations++;
+      this.log(`🗑️  Cache INVALIDATE: ${key}`);
     }
   }
 
@@ -66,7 +97,8 @@ class CacheService {
       }
     }
     if (count > 0) {
-      console.log(`🗑️  Cache INVALIDATE PATTERN: ${pattern} (${count} entries)`);
+      this.metrics.invalidations += count;
+      this.log(`🗑️  Cache INVALIDATE PATTERN: ${pattern} (${count} entries)`);
     }
   }
 
@@ -76,11 +108,11 @@ class CacheService {
   clear(): void {
     const size = this.cache.size;
     this.cache.clear();
-    console.log(`🗑️  Cache CLEAR: All ${size} entries removed`);
+    this.log(`🗑️  Cache CLEAR: All ${size} entries removed`);
   }
 
   /**
-   * Get cache statistics
+   * Get cache statistics with hit/miss ratios
    */
   getStats() {
     const now = Date.now();
@@ -101,6 +133,34 @@ class CacheService {
   }
 
   /**
+   * Get cache performance metrics including hit/miss ratios
+   */
+  getMetrics(): CacheMetrics {
+    const total = this.metrics.hits + this.metrics.misses;
+    const hitRatio = total > 0 ? (this.metrics.hits / total) * 100 : 0;
+
+    return {
+      hits: this.metrics.hits,
+      misses: this.metrics.misses,
+      sets: this.metrics.sets,
+      invalidations: this.metrics.invalidations,
+      hitRatio: Math.round(hitRatio * 100) / 100 // Round to 2 decimal places
+    };
+  }
+
+  /**
+   * Reset metrics (useful for testing or periodic resets)
+   */
+  resetMetrics(): void {
+    this.metrics = {
+      hits: 0,
+      misses: 0,
+      sets: 0,
+      invalidations: 0
+    };
+  }
+
+  /**
    * Clean up expired entries (run periodically)
    */
   cleanup(): void {
@@ -115,7 +175,7 @@ class CacheService {
     }
 
     if (cleaned > 0) {
-      console.log(`🧹 Cache CLEANUP: Removed ${cleaned} expired entries`);
+      this.log(`🧹 Cache CLEANUP: Removed ${cleaned} expired entries`);
     }
   }
 
@@ -147,6 +207,22 @@ class CacheService {
     return category 
       ? `user_memories:${userId}:${category}`
       : `user_memories:${userId}`;
+  }
+
+  /**
+   * Helper: Generate cache key for analytics events
+   */
+  static analyticsEventsKey(userId: string, timeframe?: string): string {
+    return timeframe 
+      ? `analytics_events:${userId}:${timeframe}`
+      : `analytics_events:${userId}`;
+  }
+
+  /**
+   * Helper: Generate cache key for analytics summary
+   */
+  static analyticsSummaryKey(userId: string): string {
+    return `analytics_summary:${userId}`;
   }
 }
 
