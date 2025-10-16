@@ -442,7 +442,15 @@ export async function executePlan(
       }
       
       if (maxToolRounds === 0) {
-        console.warn(`  ⚠️  Max tool rounds reached for ${step.agent}`);
+        const toolsAttempted = choice.message.tool_calls?.map((tc: any) => tc.function.name).join(', ') || 'none';
+        console.warn(`\n⚠️  MAX TOOL ROUNDS REACHED - DEBUGGING INFO:`);
+        console.warn(`   Agent: ${step.agent} (${agentConfig.name})`);
+        console.warn(`   Step: ${step.stepNumber}`);
+        console.warn(`   Tools in plan: ${step.toolsUsed.join(', ')}`);
+        console.warn(`   Tools attempted in last round: ${toolsAttempted}`);
+        console.warn(`   Message count: ${conversationMessages.length}`);
+        console.warn(`   Final output length: ${output.length} chars`);
+        console.warn(`   ⚡ This may indicate: agent not executing tools, infinite tool loop, or missing tool access\n`);
       }
       
       resultsMap.set(step.stepNumber, {
@@ -703,7 +711,28 @@ export async function orchestrateStreaming(
         }
         
         if (maxToolRounds === 0) {
-          console.warn(`  ⚠️  Max tool rounds reached for ${step.agent}`);
+          const toolsAttempted = choice.message.tool_calls?.map((tc: any) => tc.function.name).join(', ') || 'none';
+          console.warn(`\n⚠️  MAX TOOL ROUNDS REACHED - DEBUGGING INFO:`);
+          console.warn(`   Agent: ${step.agent} (${agentConfig.name})`);
+          console.warn(`   Step: ${step.stepNumber}`);
+          console.warn(`   Tools in plan: ${step.toolsUsed.join(', ')}`);
+          console.warn(`   Tools attempted in last round: ${toolsAttempted}`);
+          console.warn(`   Message count: ${conversationMessages.length}`);
+          console.warn(`   Final output length: ${output.length} chars`);
+          console.warn(`   ⚡ This may indicate: agent not executing tools, infinite tool loop, or missing tool access\n`);
+          
+          // Send warning event to client
+          onEvent({
+            type: 'warning',
+            message: `Agent ${step.agent} reached max tool execution rounds`,
+            details: {
+              agent: step.agent,
+              step: step.stepNumber,
+              toolsPlanned: step.toolsUsed,
+              toolsAttempted: toolsAttempted,
+              suggestion: 'Check agent tool access and execution logs'
+            }
+          });
         }
         
         const result = {
