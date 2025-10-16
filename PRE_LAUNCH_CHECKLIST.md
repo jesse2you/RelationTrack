@@ -154,9 +154,20 @@
 
 ### Backup & Recovery
 - [ ] **Database Backups**: Daily automated backups
-- [ ] **Code Backups**: GitHub sync ✅
+- [ ] **Code Backups - GitHub**: 
+  - [ ] Initial push to GitHub (README, PRE_LAUNCH_CHECKLIST, all code)
+  - [ ] Daily GitHub sync (commit and push changes)
+  - [ ] Verify GitHub repo is up-to-date (check last commit date)
+  - [ ] Set up automatic backup workflow (GitHub Actions or cron job)
 - [ ] **Disaster Recovery Plan**: How to restore if things break
 - [ ] **Rollback Strategy**: Replit checkpoints available ✅
+
+### 📦 **GitHub Backup Protocol** (CRITICAL!)
+- [ ] **Today's Backup**: Push current code to GitHub
+- [ ] **Daily Routine**: End each session with GitHub push
+- [ ] **Verification**: Check GitHub repo shows latest changes
+- [ ] **Branches**: Consider using branches for features vs. main
+- [ ] **Release Tags**: Tag stable versions before major changes
 
 ---
 
